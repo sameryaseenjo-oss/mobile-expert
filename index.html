@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Experts Mobile</title>
+  <link rel="stylesheet" href="styles.css?v=20260614-whatsapp-report">
+</head>
+<body>
+  <div class="phone-shell">
+    <header class="app-header">
+      <button class="icon-button" id="backBtn" aria-label="رجوع">‹</button>
+      <div class="brand-title">
+        <img src="experts-logo.png?v=20260614-logo-root" alt="EXPERTS" class="app-logo">
+        <h1 id="viewTitle">الرئيسية</h1>
+        <p id="viewSubtitle">متابعة المشاريع والملاحظات</p>
+      </div>
+      <button class="icon-button" id="searchBtn" aria-label="بحث">⌕</button>
+    </header>
+
+    <main id="app"></main>
+
+    <nav class="bottom-nav" aria-label="التنقل">
+      <button data-view="home" class="active"><span>⌂</span>الرئيسية</button>
+      <button data-view="tasks"><span>□</span>الأعمال</button>
+      <button data-view="agreements"><span>▤</span>اتفاقيات</button>
+      <button data-view="accounts"><span>☷</span>الحسابات</button>
+    </nav>
+  </div>
+
+  <button class="fab" id="addBtn" aria-label="إضافة">+</button>
+
+    <script src="app-data.js"></script>
+    <script src="drive-image-map.js"></script>
+    <script src="config.js?v=20260614-whatsapp-report"></script>
+    <script src="app.js?v=20260614-whatsapp-report"></script>
+  </body>
+</html>
