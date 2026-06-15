@@ -1207,17 +1207,44 @@ function renderAccounts() {
 }
 
 function render() {
-  setHeader();
-  if (state.view === "home") renderHome();
-  if (state.view === "projects") renderProjects();
-  if (state.view === "projectRecords") renderProjectRecords();
-  if (state.view === "detail") renderDetail();
-  if (state.view === "form") renderForm();
-  if (state.view === "accountForm") renderAccountForm();
-  if (state.view === "report") renderReport();
-  if (state.view === "tasks") renderTasks();
-  if (state.view === "agreements") renderAgreements();
-  if (state.view === "accounts") renderAccounts();
+  try {
+    setHeader();
+    switch (state.view) {
+      case "projects":
+        renderProjects();
+        break;
+      case "projectRecords":
+        renderProjectRecords();
+        break;
+      case "detail":
+        renderDetail();
+        break;
+      case "form":
+        renderForm();
+        break;
+      case "accountForm":
+        renderAccountForm();
+        break;
+      case "report":
+        renderReport();
+        break;
+      case "tasks":
+        renderTasks();
+        break;
+      case "agreements":
+        renderAgreements();
+        break;
+      case "accounts":
+        renderAccounts();
+        break;
+      case "home":
+      default:
+        renderHome();
+        break;
+    }
+  } catch (error) {
+    app.innerHTML = `<div class="empty">حدث خطأ في فتح هذه الصفحة: ${escapeHtml(error.message || error)}</div>`;
+  }
 }
 
 function bindSearch() {
