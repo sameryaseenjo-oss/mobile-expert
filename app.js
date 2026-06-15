@@ -49,6 +49,7 @@ const navButtons = [...document.querySelectorAll(".bottom-nav button")];
 let state = {
   view: "home",
   selectedId: null,
+  selectedProjectName: null,
   query: "",
   searchOpen: false,
   history: [],
@@ -57,6 +58,8 @@ let state = {
 
 const labels = {
   home: ["الرئيسية", "متابعة المشاريع والملاحظات"],
+  projects: ["المشاريع", "اختر اسم مشروع لعرض سجلاته"],
+  projectRecords: ["سجلات المشروع", "كل السجلات تحت اسم المشروع"],
   tasks: ["جدول الأعمال", "المهام والحالة"],
   agreements: ["اتفاقيات", "ملفات الاتفاقيات"],
   accounts: ["اسماء الحسابات", "جهات الاتصال والفنيين"],
@@ -84,10 +87,11 @@ function normalize(text) {
   return String(text || "").toLowerCase().replace(/\s+/g, " ").trim();
 }
 
-function navigate(view, selectedId = null, push = true) {
-  if (push) state.history.push({ view: state.view, selectedId: state.selectedId });
+function navigate(view, selectedId = null, push = true, selectedProjectName = null) {
+  if (push) state.history.push({ view: state.view, selectedId: state.selectedId, selectedProjectName: state.selectedProjectName });
   state.view = view;
   state.selectedId = selectedId;
+  state.selectedProjectName = selectedProjectName;
   state.searchOpen = false;
   render();
 }
@@ -100,20 +104,22 @@ function goBack() {
   }
   state.view = previous.view;
   state.selectedId = previous.selectedId;
+  state.selectedProjectName = previous.selectedProjectName || null;
   render();
 }
 
 function setHeader() {
   const key = state.view === "detail" || state.view === "form" ? state.view : state.view;
   title.textContent = labels[key]?.[0] || labels.home[0];
-  subtitle.textContent = labels[key]?.[1] || labels.home[1];
+  subtitle.textContent = state.view === "projectRecords" && state.selectedProjectName ? state.selectedProjectName : labels[key]?.[1] || labels.home[1];
   backBtn.style.visibility = state.history.length || state.view !== "home" ? "visible" : "hidden";
   addBtn.style.display = ["home", "tasks", "agreements", "accounts"].includes(state.view) ? "block" : "none";
-  navButtons.forEach((button) => button.classList.toggle("active", button.dataset.view === state.view));
+  const activeView = state.view === "projectRecords" ? "projects" : state.view;
+  navButtons.forEach((button) => button.classList.toggle("active", button.dataset.view === activeView));
 }
 
 function searchBox() {
-  const placeholder = state.view === "home" ? "بحث باسم المشروع أو الحساب" : "بحث";
+  const placeholder = state.view === "home" || state.view === "projects" || state.view === "projectRecords" ? "بحث باسم المشروع أو الحساب" : "بحث";
   const accountNames = state.view === "home" ? accountSearchNames() : [];
   return `
     <div class="search-panel ${state.searchOpen ? "open" : ""}">
@@ -189,6 +195,91 @@ function renderHome() {
   bindSearch();
   bindBackupButton();
   bindDeleteButtons();
+  app.querySelectorAll(".record-card").forEach((card) => {
+    card.addEventListener("click", () => navigate("detail", Number(card.dataset.id)));
+    card.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") navigate("detail", Number(card.dataset.id));
+    });
+  });
+}
+
+function projectGroups() {
+  const groups = new Map();
+  mainRows.forEach((row) => {
+    const name = value(row, "اسم المشروع", "");
+    if (!name) return;
+    if (!groups.has(name)) groups.set(name, []);
+    groups.get(name).push(row);
+  });
+  return [...groups.entries()].sort((a, b) => a[0].localeCompare(b[0], "ar"));
+}
+
+function renderProjects() {
+  const q = normalize(state.query);
+  const groups = projectGroups().filter(([name, rows]) => {
+    if (!q) return true;
+    return normalize(name).includes(q) || rows.some((row) => normalize(value(row, "اسم الشركة", "")).includes(q));
+  });
+
+  app.innerHTML = searchBox() + `
+    <section class="project-tabs">
+      ${groups.map(([name, rows]) => {
+        const companies = [...new Set(rows.map((row) => value(row, "اسم الشركة", "")).filter(Boolean))].slice(0, 2);
+        const withNotes = rows.filter((row) => value(row, "ملاحظات", "") !== "").length;
+        return `
+          <button class="project-tab" type="button" data-project="${escapeHtml(name)}">
+            <strong>${escapeHtml(name)}</strong>
+            <span>${rows.length} سجل${companies.length ? ` | ${escapeHtml(companies.join("، "))}` : ""}</span>
+            <em>${withNotes ? `${withNotes} ملاحظات` : "بدون ملاحظات"}</em>
+          </button>
+        `;
+      }).join("") || empty()}
+    </section>
+  `;
+  bindSearch();
+  app.querySelectorAll(".project-tab").forEach((button) => {
+    button.addEventListener("click", () => navigate("projectRecords", null, true, button.dataset.project));
+  });
+}
+
+function renderProjectRecords() {
+  const selectedName = state.selectedProjectName || "";
+  const q = normalize(state.query);
+  const rows = mainRows.filter((row) => {
+    const sameProject = value(row, "اسم المشروع", "") === selectedName;
+    if (!sameProject) return false;
+    if (!q) return true;
+    return ["اسم الشركة", "الطابق ", "اسم الشقة/رقمها", "ملاحظات"].some((key) => normalize(value(row, key, "")).includes(q));
+  });
+
+  app.innerHTML = searchBox() + `
+    <section class="project-record-heading">
+      <strong>${escapeHtml(selectedName || "مشروع")}</strong>
+      <span>${rows.length} سجل</span>
+    </section>
+    <section class="list">
+      ${rows.map((row) => {
+        const pressure = value(row, "الضغط", "");
+        const notes = value(row, "ملاحظات", "");
+        const cabinetUrl = appSheetImageUrl(value(row, "صورة عن الخزانة", ""));
+        return `
+          <article class="record-card" data-id="${row._id}" role="button" tabindex="0">
+            <div class="thumb">${cabinetUrl ? `<img src="${escapeHtml(cabinetUrl)}" alt="">` : escapeHtml(String(value(row, "اسم الشقة/رقمها", row._id)).slice(0, 3))}</div>
+            <div class="record-body">
+              <h2>${escapeHtml(value(row, "اسم الشقة/رقمها"))}</h2>
+              <div class="meta">${escapeHtml(value(row, "اسم الشركة"))}<br>${escapeHtml(value(row, "الطابق "))}</div>
+              <div class="chips">
+                <span class="chip">ضغط ${escapeHtml(pressure || "-")}</span>
+                <span class="chip ${notes ? "warn" : "ok"}">${notes ? "يوجد ملاحظة" : "بدون ملاحظات"}</span>
+                <span class="chip">${escapeHtml(value(row, "نوع البويلر"))}</span>
+              </div>
+            </div>
+          </article>
+        `;
+      }).join("") || empty()}
+    </section>
+  `;
+  bindSearch();
   app.querySelectorAll(".record-card").forEach((card) => {
     card.addEventListener("click", () => navigate("detail", Number(card.dataset.id)));
     card.addEventListener("keydown", (event) => {
@@ -1118,6 +1209,8 @@ function renderAccounts() {
 function render() {
   setHeader();
   if (state.view === "home") renderHome();
+  if (state.view === "projects") renderProjects();
+  if (state.view === "projectRecords") renderProjectRecords();
   if (state.view === "detail") renderDetail();
   if (state.view === "form") renderForm();
   if (state.view === "accountForm") renderAccountForm();
