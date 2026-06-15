@@ -1350,6 +1350,13 @@ navButtons.forEach((button) => {
   });
 });
 
+document.querySelector(".bottom-nav")?.addEventListener("click", (event) => {
+  const button = event.target.closest("button[data-view]");
+  if (!button) return;
+  state.query = "";
+  navigate(button.dataset.view);
+});
+
 app.addEventListener("click", (event) => {
   const card = event.target.closest(".record-card");
   if (!card || state.view !== "home") return;
