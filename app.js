@@ -206,12 +206,12 @@ function renderHome() {
 function projectGroups() {
   const groups = new Map();
   mainRows.forEach((row) => {
-    const name = value(row, "اسم المشروع", "");
+    const name = String(value(row, "اسم المشروع", "") || "").trim();
     if (!name) return;
     if (!groups.has(name)) groups.set(name, []);
     groups.get(name).push(row);
   });
-  return [...groups.entries()].sort((a, b) => a[0].localeCompare(b[0], "ar"));
+  return [...groups.entries()].sort((a, b) => String(a[0]).localeCompare(String(b[0]), "ar"));
 }
 
 function renderProjects() {
@@ -246,7 +246,7 @@ function renderProjectRecords() {
   const selectedName = state.selectedProjectName || "";
   const q = normalize(state.query);
   const rows = mainRows.filter((row) => {
-    const sameProject = value(row, "اسم المشروع", "") === selectedName;
+    const sameProject = String(value(row, "اسم المشروع", "") || "").trim() === selectedName;
     if (!sameProject) return false;
     if (!q) return true;
     return ["اسم الشركة", "الطابق ", "اسم الشقة/رقمها", "ملاحظات"].some((key) => normalize(value(row, key, "")).includes(q));
