@@ -45,6 +45,10 @@ const backBtn = document.querySelector("#backBtn");
 const searchBtn = document.querySelector("#searchBtn");
 const addBtn = document.querySelector("#addBtn");
 const navButtons = [...document.querySelectorAll(".bottom-nav button")];
+document.querySelector(".bottom-nav [data-view='projects']")?.replaceChildren(
+  Object.assign(document.createElement("span"), { textContent: "▣" }),
+  document.createTextNode("الحسابات")
+);
 
 let state = {
   view: "home",
@@ -58,8 +62,8 @@ let state = {
 
 const labels = {
   home: ["الرئيسية", "متابعة المشاريع والملاحظات"],
-  projects: ["المشاريع", "اختر اسم مشروع لعرض سجلاته"],
-  projectRecords: ["سجلات المشروع", "كل السجلات تحت اسم المشروع"],
+  projects: ["الحسابات الرئيسية", "اختر اسم الحساب الرئيسي لعرض مشاريعه"],
+  projectRecords: ["مشاريع الحساب", "كل المشاريع تحت اسم الحساب الرئيسي"],
   tasks: ["جدول الأعمال", "المهام والحالة"],
   agreements: ["اتفاقيات", "ملفات الاتفاقيات"],
   accounts: ["اسماء الحسابات", "جهات الاتصال والفنيين"],
@@ -119,7 +123,7 @@ function setHeader() {
 }
 
 function searchBox() {
-  const placeholder = state.view === "home" || state.view === "projects" || state.view === "projectRecords" ? "بحث باسم المشروع أو الحساب" : "بحث";
+  const placeholder = state.view === "home" || state.view === "projects" || state.view === "projectRecords" ? "بحث باسم الحساب الرئيسي أو المشروع" : "بحث";
   const accountNames = state.view === "home" ? accountSearchNames() : [];
   return `
     <div class="search-panel ${state.searchOpen ? "open" : ""}">
@@ -206,7 +210,7 @@ function renderHome() {
 function projectGroups() {
   const groups = new Map();
   mainRows.forEach((row) => {
-    const name = String(value(row, "اسم المشروع", "") || "").trim();
+    const name = String(value(row, "اسم الشركة", "") || "").trim();
     if (!name) return;
     if (!groups.has(name)) groups.set(name, []);
     groups.get(name).push(row);
@@ -218,18 +222,18 @@ function renderProjects() {
   const q = normalize(state.query);
   const groups = projectGroups().filter(([name, rows]) => {
     if (!q) return true;
-    return normalize(name).includes(q) || rows.some((row) => normalize(value(row, "اسم الشركة", "")).includes(q));
+    return normalize(name).includes(q) || rows.some((row) => normalize(value(row, "اسم المشروع", "")).includes(q));
   });
 
   app.innerHTML = searchBox() + `
     <section class="project-tabs">
       ${groups.map(([name, rows]) => {
-        const companies = [...new Set(rows.map((row) => value(row, "اسم الشركة", "")).filter(Boolean))].slice(0, 2);
+        const projectNames = [...new Set(rows.map((row) => value(row, "اسم المشروع", "")).filter(Boolean))].slice(0, 3);
         const withNotes = rows.filter((row) => value(row, "ملاحظات", "") !== "").length;
         return `
           <button class="project-tab" type="button" data-project="${escapeHtml(name)}">
             <strong>${escapeHtml(name)}</strong>
-            <span>${rows.length} سجل${companies.length ? ` | ${escapeHtml(companies.join("، "))}` : ""}</span>
+            <span>${rows.length} سجل${projectNames.length ? ` | ${escapeHtml(projectNames.join("، "))}` : ""}</span>
             <em>${withNotes ? `${withNotes} ملاحظات` : "بدون ملاحظات"}</em>
           </button>
         `;
@@ -246,10 +250,10 @@ function renderProjectRecords() {
   const selectedName = state.selectedProjectName || "";
   const q = normalize(state.query);
   const rows = mainRows.filter((row) => {
-    const sameProject = String(value(row, "اسم المشروع", "") || "").trim() === selectedName;
+    const sameProject = String(value(row, "اسم الشركة", "") || "").trim() === selectedName;
     if (!sameProject) return false;
     if (!q) return true;
-    return ["اسم الشركة", "الطابق ", "اسم الشقة/رقمها", "ملاحظات"].some((key) => normalize(value(row, key, "")).includes(q));
+    return ["اسم المشروع", "الطابق ", "اسم الشقة/رقمها", "ملاحظات"].some((key) => normalize(value(row, key, "")).includes(q));
   });
 
   app.innerHTML = searchBox() + `
@@ -266,8 +270,8 @@ function renderProjectRecords() {
           <article class="record-card" data-id="${row._id}" role="button" tabindex="0">
             <div class="thumb">${cabinetUrl ? `<img src="${escapeHtml(cabinetUrl)}" alt="">` : escapeHtml(String(value(row, "اسم الشقة/رقمها", row._id)).slice(0, 3))}</div>
             <div class="record-body">
-              <h2>${escapeHtml(value(row, "اسم الشقة/رقمها"))}</h2>
-              <div class="meta">${escapeHtml(value(row, "اسم الشركة"))}<br>${escapeHtml(value(row, "الطابق "))}</div>
+              <h2>${escapeHtml(value(row, "اسم المشروع"))}</h2>
+              <div class="meta">${escapeHtml(value(row, "الطابق "))} | شقة ${escapeHtml(value(row, "اسم الشقة/رقمها"))}</div>
               <div class="chips">
                 <span class="chip">ضغط ${escapeHtml(pressure || "-")}</span>
                 <span class="chip ${notes ? "warn" : "ok"}">${notes ? "يوجد ملاحظة" : "بدون ملاحظات"}</span>
