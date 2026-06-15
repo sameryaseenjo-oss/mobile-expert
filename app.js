@@ -1343,13 +1343,6 @@ addBtn.addEventListener("click", () => {
   navigate("form", null);
 });
 
-navButtons.forEach((button) => {
-  button.addEventListener("click", () => {
-    state.query = "";
-    navigate(button.dataset.view);
-  });
-});
-
 document.querySelector(".bottom-nav")?.addEventListener("click", (event) => {
   const button = event.target.closest("button[data-view]");
   if (!button) return;
