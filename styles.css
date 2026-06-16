@@ -889,23 +889,23 @@ main {
 
 /* Elegant refresh */
 :root {
-  --ink: #edf1f5;
-  --muted: #a9b2bd;
-  --line: #33404b;
-  --panel: #1e2730;
-  --soft: #28343f;
-  --teal: #6d7682;
-  --teal-dark: #d8dee5;
-  --amber: #b99a61;
-  --danger: #e08a8f;
-  --bg: #111820;
-  --shadow-sm: 0 10px 24px rgba(0, 0, 0, 0.22);
-  --shadow-md: 0 18px 38px rgba(0, 0, 0, 0.34);
+  --ink: #252b32;
+  --muted: #6d7680;
+  --line: #cfd6de;
+  --panel: #f8fafc;
+  --soft: #edf1f4;
+  --teal: #697482;
+  --teal-dark: #2f3945;
+  --amber: #a98445;
+  --danger: #b85d64;
+  --bg: #e9edf2;
+  --shadow-sm: 0 8px 22px rgba(31, 41, 55, 0.1);
+  --shadow-md: 0 16px 36px rgba(31, 41, 55, 0.16);
 }
 
 body {
   background:
-    linear-gradient(180deg, #17202a 0%, #111820 48%, #0d131a 100%);
+    linear-gradient(180deg, #f6f7f9 0%, #e9edf2 48%, #dfe5eb 100%);
 }
 
 .phone-shell {
@@ -917,9 +917,9 @@ body {
   min-height: 92px;
   padding: 14px 14px 12px;
   background:
-    linear-gradient(135deg, rgba(109, 118, 130, 0.18), rgba(185, 154, 97, 0.1)),
-    rgba(30, 39, 48, 0.96);
-  border-bottom: 1px solid rgba(169, 178, 189, 0.14);
+    linear-gradient(135deg, rgba(105, 116, 130, 0.14), rgba(169, 132, 69, 0.09)),
+    rgba(248, 250, 252, 0.96);
+  border-bottom: 1px solid rgba(105, 116, 130, 0.18);
   backdrop-filter: blur(12px);
 }
 
@@ -938,20 +938,20 @@ body {
 }
 
 .app-header h1 {
-  color: #f3f6f8;
+  color: #252b32;
   font-size: 19px;
   letter-spacing: 0;
 }
 
 .app-header p {
-  color: #a9b2bd;
+  color: #6d7680;
 }
 
 .icon-button {
-  border: 1px solid rgba(169, 178, 189, 0.18);
-  background: rgba(17, 24, 32, 0.72);
+  border: 1px solid rgba(105, 116, 130, 0.22);
+  background: rgba(255, 255, 255, 0.82);
   color: var(--teal-dark);
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.22);
+  box-shadow: 0 6px 16px rgba(31, 41, 55, 0.09);
 }
 
 main {
@@ -965,8 +965,8 @@ main {
 .field select {
   border-color: #cfdddf;
   border-radius: 10px;
-  background: rgba(17, 24, 32, 0.88);
-  color: #edf1f5;
+  background: rgba(255, 255, 255, 0.94);
+  color: #252b32;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85);
 }
 
@@ -994,8 +994,8 @@ main {
 }
 
 .sync-banner {
-  background: rgba(30, 39, 48, 0.92);
-  color: #a9b2bd;
+  background: rgba(248, 250, 252, 0.92);
+  color: #6d7680;
 }
 
 .stats {
@@ -1006,7 +1006,7 @@ main {
   position: relative;
   overflow: hidden;
   padding: 12px;
-  background: linear-gradient(180deg, #222d37 0%, #1b242d 100%);
+  background: linear-gradient(180deg, #ffffff 0%, #f2f5f7 100%);
 }
 
 .stat::before {
@@ -1020,14 +1020,14 @@ main {
 }
 
 .stat strong {
-  color: #f3f6f8;
+  color: #252b32;
   font-size: 22px;
 }
 
 .record-card {
   grid-template-columns: 82px minmax(0, 1fr);
   min-height: 122px;
-  background: rgba(30, 39, 48, 0.96);
+  background: rgba(248, 250, 252, 0.96);
   transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
 }
 
@@ -1043,7 +1043,7 @@ main {
   min-height: 122px;
   background:
     linear-gradient(135deg, rgba(75, 85, 99, 0.18), rgba(154, 123, 68, 0.1)),
-    #252f39;
+    #edf1f4;
   border-right-color: rgba(75, 85, 99, 0.12);
   color: var(--teal-dark);
 }
@@ -1060,7 +1060,7 @@ main {
 .task-card h2,
 .account-card h2,
 .detail-section h2 {
-  color: #f3f6f8;
+  color: #252b32;
 }
 
 .meta {
@@ -1070,13 +1070,13 @@ main {
 .chip {
   min-height: 26px;
   border: 1px solid rgba(75, 85, 99, 0.12);
-  background: #28343f;
-  color: #d3dae2;
+  background: #edf1f4;
+  color: #47515d;
 }
 
 .chip.ok {
-  background: #303b45;
-  color: #e1e7ed;
+  background: #e4e9ee;
+  color: #33404c;
 }
 
 .chip.warn {
@@ -1091,11 +1091,11 @@ main {
 }
 
 .detail-section {
-  background: rgba(30, 39, 48, 0.96);
+  background: rgba(248, 250, 252, 0.96);
 }
 
 .info-row {
-  border-bottom-color: #303b45;
+  border-bottom-color: #d9dee5;
 }
 
 .primary,
@@ -1109,18 +1109,18 @@ main {
 
 .primary {
   background: linear-gradient(135deg, #6d7682, #4b5563);
-  box-shadow: 0 9px 20px rgba(0, 0, 0, 0.28);
+  box-shadow: 0 9px 20px rgba(31, 41, 55, 0.18);
 }
 
 .secondary {
   border: 1px solid rgba(75, 85, 99, 0.15);
-  background: #28343f;
-  color: #edf1f5;
+  background: #edf1f4;
+  color: #252b32;
 }
 
 .danger {
-  background: #412b31;
-  color: #ffb7bd;
+  background: #f6e3e5;
+  color: #a7434c;
 }
 
 .primary:active,
@@ -1133,14 +1133,14 @@ main {
 
 .fab {
   background: linear-gradient(135deg, #747f8d, #4b5563);
-  box-shadow: 0 16px 34px rgba(0, 0, 0, 0.38);
+  box-shadow: 0 16px 34px rgba(31, 41, 55, 0.24);
 }
 
 .bottom-nav {
   height: 76px;
-  background: rgba(30, 39, 48, 0.97);
+  background: rgba(248, 250, 252, 0.97);
   border-top-color: rgba(169, 178, 189, 0.13);
-  box-shadow: 0 -12px 32px rgba(0, 0, 0, 0.28);
+  box-shadow: 0 -12px 32px rgba(31, 41, 55, 0.12);
   backdrop-filter: blur(12px);
 }
 
@@ -1151,7 +1151,7 @@ main {
 }
 
 .bottom-nav button.active {
-  color: #f3f6f8;
+  color: #252b32;
 }
 
 .bottom-nav button.active::before {
@@ -1171,11 +1171,11 @@ main {
 .report-summary div,
 .report-signatures div {
   border-color: rgba(75, 85, 99, 0.13);
-  background: #222d37;
+  background: #f2f5f7;
 }
 
 .report-table th {
-  background: #28343f;
+  background: #edf1f4;
 }
 
 .search-dropdown,
@@ -1186,8 +1186,8 @@ main {
 .upload-tile,
 .image-preview,
 .image-preview.has-image {
-  background: #1e2730;
-  color: #edf1f5;
+  background: #f8fafc;
+  color: #252b32;
 }
 
 .search-dropdown {
@@ -1200,14 +1200,14 @@ main {
 }
 
 .search-dropdown button:active {
-  background: #28343f;
+  background: #edf1f4;
 }
 
 .photo-card figcaption,
 .report-image figcaption,
 .report-table th {
-  background: #28343f;
-  color: #d8dee5;
+  background: #edf1f4;
+  color: #2f3945;
 }
 
 .photo-placeholder,
@@ -1237,7 +1237,7 @@ main {
 }
 
 .signature-pad {
-  background: repeating-linear-gradient(0deg, #1e2730, #1e2730 18px, #25313c 19px);
+  background: repeating-linear-gradient(0deg, #f8fafc, #f8fafc 18px, #edf1f4 19px);
 }
 
 .signature-hint {
@@ -1245,11 +1245,11 @@ main {
 }
 
 .report-page {
-  background: #1e2730;
+  background: #f8fafc;
 }
 
 .report-table {
-  color: #edf1f5;
+  color: #252b32;
 }
 
 @page {
