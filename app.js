@@ -805,11 +805,11 @@ async function saveProjectForm(originalRow = {}) {
       headers: { "Content-Type": "text/plain;charset=utf-8" },
       body: JSON.stringify(payload),
     });
-    if (status) status.textContent = "تم إرسال البيانات إلى قاعدة البيانات. جاري تحديث الصور...";
+    if (status) status.textContent = "تم إرسال البيانات. انتظر قليلا حتى تظهر صور Drive...";
+    const savedKey = recordMatchKey(fields);
     window.setTimeout(() => {
-      navigate("detail", fields._id, false);
-      window.setTimeout(loadRemoteDatabase, 1800);
-    }, 700);
+      loadRemoteDatabase({ selectKey: savedKey });
+    }, 4500);
   } catch (error) {
     if (status) status.textContent = "تعذر الاتصال بقاعدة البيانات. تم حفظ نسخة مؤقتة على الهاتف.";
     if (button) button.disabled = false;
@@ -981,16 +981,21 @@ function isImageKey(key) {
 function applyLocalChanges() {
   removeDeletedRows(mainRows, JSON.parse(localStorage.getItem("expertsDeletedProjectIds") || "[]").map(String));
   removeDeletedRows(accounts, JSON.parse(localStorage.getItem("expertsDeletedAccountIds") || "[]").map(String));
+  const remainingPendingRecords = [];
   JSON.parse(localStorage.getItem("expertsPendingRecords") || "[]").forEach((row) => {
     ensureRecordIdentity(row);
-    if (!mainRows.some((item) => String(item._id) === String(row._id) || sameRecordKey(item, row))) mainRows.unshift(row);
+    const existsRemotely = mainRows.some((item) => String(item._id) === String(row._id) || sameRecordKey(item, row));
+    if (existsRemotely) return;
+    remainingPendingRecords.push(row);
+    mainRows.unshift(row);
   });
+  localStorage.setItem("expertsPendingRecords", JSON.stringify(remainingPendingRecords));
   JSON.parse(localStorage.getItem("expertsPendingAccounts") || "[]").forEach((row) => {
     if (!accounts.some((item) => String(item._id) === String(row._id))) accounts.unshift(row);
   });
 }
 
-function loadRemoteDatabase() {
+function loadRemoteDatabase(options = {}) {
   if (!DATABASE_ENDPOINT) return;
   state.syncStatus = "جاري مزامنة قاعدة البيانات...";
   const callbackName = `expertsDbCallback_${Date.now()}`;
@@ -1009,6 +1014,13 @@ function loadRemoteDatabase() {
         replaceRows(agreements, response.data["اتفاقيات"] || []);
         applyLocalChanges();
         state.syncStatus = `تم تحميل ${mainRows.length} سجل من قاعدة البيانات`;
+        if (options.selectKey) {
+          const savedRow = mainRows.find((row) => recordMatchKey(row) === options.selectKey);
+          if (savedRow) {
+            state.view = "detail";
+            state.selectedId = savedRow._id;
+          }
+        }
         render();
       } else {
         state.syncStatus = "لم يتم تحميل قاعدة البيانات. تحقق من نشر Apps Script";
@@ -1417,6 +1429,7 @@ function unique(rows, key) {
 
 function fileLabel(path) {
   if (!path) return "-";
+  if (!String(path).includes("/") && /_\d{8}T\d{6}\./.test(String(path))) return "بانتظار تحديث الصورة من Drive";
   return String(path).split("/").pop();
 }
 
