@@ -437,7 +437,7 @@ function renderReport() {
         ${rows.map(([label, text]) => `<div><span>${escapeHtml(label)}</span><strong>${escapeHtml(text)}</strong></div>`).join("")}
       </section>
       <section class="report-images">
-        ${imageFields(row).map((key) => reportImage(row, key)).join("")}
+        ${reportImageFields(row).map((key) => reportImage(row, key)).join("")}
       </section>
       <table class="report-table">
         <tbody>
@@ -445,7 +445,7 @@ function renderReport() {
         </tbody>
       </table>
       <section class="report-signatures">
-        <div>توقيع المهندس المقيم</div>
+        ${reportSignature(row)}
         <div>توقيع العميل</div>
       </section>
     </article>
@@ -518,6 +518,22 @@ function reportImage(row, key) {
         : ""}
       <div ${imageUrl ? "hidden" : ""}>${escapeHtml(fileLabel(imagePath) || "لا توجد صورة")}</div>
     </figure>
+  `;
+}
+
+function reportImageFields(row) {
+  return imageFields(row).filter((key) => !key.includes("توقيع"));
+}
+
+function reportSignature(row) {
+  const key = "توقيع المهندس المقيم";
+  const imagePath = value(row, key, "");
+  const imageUrl = appSheetImageUrl(imagePath);
+  return `
+    <div class="report-signature-box">
+      <span>${key}</span>
+      ${imageUrl ? `<img src="${escapeHtml(imageUrl)}" alt="${key}" onerror="this.hidden=true;">` : ""}
+    </div>
   `;
 }
 

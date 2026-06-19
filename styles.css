@@ -746,6 +746,23 @@ main {
   color: var(--muted);
 }
 
+.report-signature-box {
+  display: grid;
+  gap: 8px;
+  align-content: start;
+}
+
+.report-signature-box span {
+  color: var(--muted);
+}
+
+.report-signature-box img {
+  display: block;
+  max-width: 100%;
+  max-height: 90px;
+  object-fit: contain;
+}
+
 .task-card,
 .account-card {
   padding: 12px;
