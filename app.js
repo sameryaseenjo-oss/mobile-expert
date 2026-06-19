@@ -906,6 +906,43 @@ function replaceRows(targetRows, sourceRows = []) {
   targetRows.splice(0, targetRows.length, ...sourceRows);
 }
 
+function mergeDuplicateRecords(rows = []) {
+  const byKey = new Map();
+  rows.forEach((row) => {
+    const key = recordMatchKey(row) || String(row._id || "");
+    if (!key) return;
+    const existing = byKey.get(key);
+    if (!existing) {
+      byKey.set(key, { ...row });
+      return;
+    }
+    byKey.set(key, mergePreferredRecord(existing, row));
+  });
+  return [...byKey.values()];
+}
+
+function mergePreferredRecord(a, b) {
+  const merged = { ...a };
+  Object.keys(b || {}).forEach((key) => {
+    const current = merged[key];
+    const next = b[key];
+    if (preferValue(next, current, key)) merged[key] = next;
+  });
+  return merged;
+}
+
+function preferValue(next, current, key) {
+  if (next === null || next === undefined || next === "") return false;
+  if (current === null || current === undefined || current === "") return true;
+  if (isImageKey(key)) {
+    const nextText = String(next);
+    const currentText = String(current);
+    if (nextText.includes("drive.google.com/thumbnail") && !currentText.includes("drive.google.com/thumbnail")) return true;
+    if (/^data:image\//i.test(currentText) && nextText.includes("drive.google.com/thumbnail")) return true;
+  }
+  return false;
+}
+
 function withImageFallbacks(sourceRows = []) {
   return sourceRows.map((row) => {
     const original = findOriginalRow(row);
@@ -965,7 +1002,7 @@ function loadRemoteDatabase() {
       if (response?.ok && response.data) {
         const remoteMainRows = response.data["الرئيسية"] || [];
         if (remoteMainRows.length) {
-          replaceRows(mainRows, prepareMainRows(withImageFallbacks(remoteMainRows)));
+          replaceRows(mainRows, prepareMainRows(mergeDuplicateRecords(withImageFallbacks(remoteMainRows))));
         }
         replaceRows(accounts, response.data["اسماء الحسابات"] || []);
         replaceRows(tasks, response.data["جدول الاعمال"] || []);
@@ -1394,6 +1431,7 @@ function appSheetImageUrl(path) {
     }
     return path;
   }
+  if (!String(path).includes("/") && /_\d{8}T\d{6}\./.test(String(path))) return "";
   const fileName = fileLabel(path);
   const driveId = window.DRIVE_IMAGE_IDS?.[fileName];
   if (driveId) return `https://drive.google.com/thumbnail?id=${encodeURIComponent(driveId)}&sz=w1200`;
