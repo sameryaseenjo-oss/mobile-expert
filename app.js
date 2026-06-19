@@ -785,8 +785,8 @@ async function saveProjectForm(originalRow = {}) {
 
   if (status) status.textContent = "جاري الحفظ...";
 
-  saveLocalRecord(fields);
-  upsertVisibleRecord(fields);
+  saveLocalRecord(remoteFields);
+  upsertVisibleRecord(remoteFields);
 
   if (!DATABASE_ENDPOINT) {
     if (status) status.textContent = "تم الحفظ على الهاتف مؤقتا. يجب ربط رابط قاعدة البيانات حتى يصل إلى Google Sheet.";
