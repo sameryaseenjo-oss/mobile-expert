@@ -303,6 +303,7 @@ function renderDetail() {
         ${info("عنوان المشروع", value(row, "عنوان المشروع"))}
         ${info("الطابق", value(row, "الطابق "))}
         ${info("الشقة", value(row, "اسم الشقة/رقمها"))}
+        ${info("رقم الخزانة", value(row, "رقم الخزانة"))}
         ${info("عدد اللوبات", value(row, "عدد لوبات التدفئة تحت البلاط"))}
         ${info("إجمالي طول الأنابيب", value(row, "اجمالي طول الانابيب"))}
       </div>
@@ -315,6 +316,8 @@ function renderDetail() {
         ${info("نوع الخط الرئيسي", value(row, "نوع الخط الرئيسي"))}
         ${info("قياس الخط الرئيسي", value(row, "قياس الخط الرئيسي"))}
         ${info("ROOM BY ROOM", boolText(row["ROOM BY ROOM"]))}
+        ${info("تركيب البانيل", value(row, "تركيب البانيل"))}
+        ${info("نسخة المخطط", value(row, "نسخة المخطط"))}
         ${info("الضغط", value(row, "الضغط"))}
         ${info("تاريخ قراءة الضغط", value(row, "تاريخ قرائة الضغط"))}
       </div>
@@ -527,18 +530,23 @@ function renderForm() {
       ${field("عنوان المشروع", value(row, "عنوان المشروع", ""))}
       ${field("الطابق", value(row, "الطابق ", ""))}
       ${field("اسم الشقة/رقمها", value(row, "اسم الشقة/رقمها", ""))}
+      ${field("رقم الخزانة", value(row, "رقم الخزانة", ""))}
       ${field("عدد لوبات التدفئة تحت البلاط", value(row, "عدد لوبات التدفئة تحت البلاط", ""), "number")}
       ${field("اجمالي طول الانابيب", value(row, "اجمالي طول الانابيب", ""))}
       ${field("نوع البويلر", value(row, "نوع البويلر", ""), "select", unique(mainRows, "نوع البويلر"))}
       ${field("قياس البويلر", value(row, "قياس البويلر", ""))}
       ${field("نوع الخط الرئيسي", value(row, "نوع الخط الرئيسي", ""), "select", unique(mainRows, "نوع الخط الرئيسي"))}
       ${field("قياس الخط الرئيسي", value(row, "قياس الخط الرئيسي", ""))}
+      ${field("ROOM BY ROOM", value(row, "ROOM BY ROOM", ""), "select", ["true", "false"])}
+      ${field("تركيب البانيل", value(row, "تركيب البانيل", ""), "select", unique(mainRows, "تركيب البانيل"))}
+      ${field("نسخة المخطط", value(row, "نسخة المخطط", ""))}
       ${field("الضغط", value(row, "الضغط", ""), "number")}
       ${field("تاريخ قراءة الضغط", value(row, "تاريخ قرائة الضغط", ""), "date")}
       ${area("ملاحظات", value(row, "ملاحظات", ""))}
       ${area("الإجراء المتخذ", value(row, "الاجراء المتخذ", ""))}
       ${imageField("صورة عن الخزانة", "cabinetImage")}
       ${imageField("صورة عن الضغط", "pressureImage")}
+      ${imageField("صورة ملاحظات", "notesImage")}
       <div class="field">
         <label>توقيع المهندس المقيم</label>
         <div class="signature-pad">
