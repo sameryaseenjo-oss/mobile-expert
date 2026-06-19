@@ -23,6 +23,7 @@ const SIGNED_IMAGE_URLS = {
   "المعلومات العامة_Images/12.صورة عن الضغط.121956.jpg": "https://www.appsheet.com/image/getimageurl?appName=Untitledspreadsheet-797120343&tableName=%D8%A7%D9%84%D9%85%D8%B9%D9%84%D9%88%D9%85%D8%A7%D8%AA%20%D8%A7%D9%84%D8%B9%D8%A7%D9%85%D8%A9&fileName=%D8%A7%D9%84%D9%85%D8%B9%D9%84%D9%88%D9%85%D8%A7%D8%AA%20%D8%A7%D9%84%D8%B9%D8%A7%D9%85%D8%A9_Images%2F12.%D8%B5%D9%88%D8%B1%D8%A9%20%D8%B9%D9%86%20%D8%A7%D9%84%D8%B6%D8%BA%D8%B7.121956.jpg&appVersion=1.000163&signature=d9a34a97307cc5b6d09351388928fe70cab01355d896c08d16f543ef4266658e",
 };
 const mainRows = data["الرئيسية"] || [];
+mainRows.forEach((row, index) => ensureRecordIdentity(row, index));
 const originalMainRows = mainRows.map((row) => ({ ...row }));
 const agreements = data["اتفاقيات"] || [];
 const accounts = data["اسماء الحسابات"] || [];
@@ -32,7 +33,10 @@ const deletedAccountIds = JSON.parse(localStorage.getItem("expertsDeletedAccount
 removeDeletedRows(mainRows, deletedProjectIds);
 removeDeletedRows(accounts, deletedAccountIds);
 JSON.parse(localStorage.getItem("expertsPendingRecords") || "[]").forEach((row) => {
-  if (!deletedProjectIds.includes(String(row._id)) && !mainRows.some((item) => String(item._id) === String(row._id))) mainRows.unshift(row);
+  ensureRecordIdentity(row);
+  const sameId = mainRows.some((item) => String(item._id) === String(row._id));
+  const sameRecord = mainRows.some((item) => sameRecordKey(item, row));
+  if (!deletedProjectIds.includes(String(row._id)) && !sameId && !sameRecord) mainRows.unshift(row);
 });
 JSON.parse(localStorage.getItem("expertsPendingAccounts") || "[]").forEach((row) => {
   if (!deletedAccountIds.includes(String(row._id)) && !accounts.some((item) => String(item._id) === String(row._id))) accounts.unshift(row);
@@ -200,9 +204,9 @@ function renderHome() {
   bindBackupButton();
   bindDeleteButtons();
   app.querySelectorAll(".record-card").forEach((card) => {
-    card.addEventListener("click", () => navigate("detail", Number(card.dataset.id)));
+    card.addEventListener("click", () => navigate("detail", card.dataset.id));
     card.addEventListener("keydown", (event) => {
-      if (event.key === "Enter" || event.key === " ") navigate("detail", Number(card.dataset.id));
+      if (event.key === "Enter" || event.key === " ") navigate("detail", card.dataset.id);
     });
   });
 }
@@ -285,15 +289,15 @@ function renderProjectRecords() {
   `;
   bindSearch();
   app.querySelectorAll(".record-card").forEach((card) => {
-    card.addEventListener("click", () => navigate("detail", Number(card.dataset.id)));
+    card.addEventListener("click", () => navigate("detail", card.dataset.id));
     card.addEventListener("keydown", (event) => {
-      if (event.key === "Enter" || event.key === " ") navigate("detail", Number(card.dataset.id));
+      if (event.key === "Enter" || event.key === " ") navigate("detail", card.dataset.id);
     });
   });
 }
 
 function renderDetail() {
-  const row = mainRows.find((item) => item._id === state.selectedId) || mainRows[0];
+  const row = mainRows.find((item) => String(item._id) === String(state.selectedId)) || mainRows[0];
   app.innerHTML = `
     ${detailHero(row)}
     <section class="detail-section">
@@ -410,7 +414,7 @@ function reportRows(row) {
 }
 
 function renderReport() {
-  const row = mainRows.find((item) => item._id === state.selectedId) || mainRows[0];
+  const row = mainRows.find((item) => String(item._id) === String(state.selectedId)) || mainRows[0];
   const rows = [
     ["الشقة", value(row, "اسم الشقة/رقمها")],
     ["الطابق", value(row, "الطابق ")],
@@ -538,7 +542,7 @@ function reportSignature(row) {
 }
 
 function renderForm() {
-  const row = mainRows.find((item) => item._id === state.selectedId) || {};
+  const row = mainRows.find((item) => String(item._id) === String(state.selectedId)) || {};
   app.innerHTML = `
     <form class="form">
       ${field("اسم الشركة", value(row, "اسم الشركة", ""), "select", allCompanyNames())}
@@ -801,9 +805,10 @@ async function saveProjectForm(originalRow = {}) {
       headers: { "Content-Type": "text/plain;charset=utf-8" },
       body: JSON.stringify(payload),
     });
-    if (status) status.textContent = "تم إرسال البيانات إلى قاعدة البيانات.";
+    if (status) status.textContent = "تم إرسال البيانات إلى قاعدة البيانات. جاري تحديث الصور...";
     window.setTimeout(() => {
       navigate("detail", fields._id, false);
+      window.setTimeout(loadRemoteDatabase, 1800);
     }, 700);
   } catch (error) {
     if (status) status.textContent = "تعذر الاتصال بقاعدة البيانات. تم حفظ نسخة مؤقتة على الهاتف.";
@@ -852,12 +857,43 @@ function imageExtension(name, fallback) {
 }
 
 function upsertVisibleRecord(row) {
-  const index = mainRows.findIndex((item) => String(item._id) === String(row._id));
+  ensureRecordIdentity(row);
+  const index = mainRows.findIndex((item) => String(item._id) === String(row._id) || sameRecordKey(item, row));
   if (index >= 0) {
     mainRows[index] = { ...mainRows[index], ...row };
+    ensureRecordIdentity(mainRows[index], index);
     return;
   }
   mainRows.unshift(row);
+}
+
+function prepareMainRows(rows = []) {
+  return rows.map((row, index) => {
+    const next = { ...row };
+    ensureRecordIdentity(next, index);
+    return next;
+  });
+}
+
+function ensureRecordIdentity(row, index = 0) {
+  if (!row || row._id) return row;
+  const key = recordMatchKey(row) || `row-${index}`;
+  row._id = `remote-${simpleHash(key)}`;
+  return row;
+}
+
+function simpleHash(text) {
+  let hash = 0;
+  String(text || "").split("").forEach((char) => {
+    hash = ((hash << 5) - hash + char.charCodeAt(0)) | 0;
+  });
+  return Math.abs(hash).toString(36);
+}
+
+function sameRecordKey(a, b) {
+  const left = recordMatchKey(a);
+  const right = recordMatchKey(b);
+  return Boolean(left && right && left === right);
 }
 
 function removeDeletedRows(rows, ids) {
@@ -909,7 +945,8 @@ function applyLocalChanges() {
   removeDeletedRows(mainRows, JSON.parse(localStorage.getItem("expertsDeletedProjectIds") || "[]").map(String));
   removeDeletedRows(accounts, JSON.parse(localStorage.getItem("expertsDeletedAccountIds") || "[]").map(String));
   JSON.parse(localStorage.getItem("expertsPendingRecords") || "[]").forEach((row) => {
-    if (!mainRows.some((item) => String(item._id) === String(row._id))) mainRows.unshift(row);
+    ensureRecordIdentity(row);
+    if (!mainRows.some((item) => String(item._id) === String(row._id) || sameRecordKey(item, row))) mainRows.unshift(row);
   });
   JSON.parse(localStorage.getItem("expertsPendingAccounts") || "[]").forEach((row) => {
     if (!accounts.some((item) => String(item._id) === String(row._id))) accounts.unshift(row);
@@ -928,7 +965,7 @@ function loadRemoteDatabase() {
       if (response?.ok && response.data) {
         const remoteMainRows = response.data["الرئيسية"] || [];
         if (remoteMainRows.length) {
-          replaceRows(mainRows, withImageFallbacks(remoteMainRows));
+          replaceRows(mainRows, prepareMainRows(withImageFallbacks(remoteMainRows)));
         }
         replaceRows(accounts, response.data["اسماء الحسابات"] || []);
         replaceRows(tasks, response.data["جدول الاعمال"] || []);
@@ -1408,7 +1445,7 @@ document.querySelector(".bottom-nav")?.addEventListener("click", (event) => {
 app.addEventListener("click", (event) => {
   const card = event.target.closest(".record-card");
   if (!card || state.view !== "home") return;
-  navigate("detail", Number(card.dataset.id));
+  navigate("detail", card.dataset.id);
 });
 
 render();
