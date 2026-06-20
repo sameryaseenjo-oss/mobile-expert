@@ -4,6 +4,7 @@ const APPSHEET_MAIN_TABLE = "المعلومات العامة";
 const APPSHEET_APP_VERSION = "1.000163";
 const DATABASE_ENDPOINT = window.EXPERTS_DATABASE_ENDPOINT || localStorage.getItem("expertsDatabaseEndpoint") || "";
 let selectedFormFiles = {};
+let selectedGalleryFiles = [];
 const SIGNED_IMAGE_URLS = {
   "المعلومات العامة_Images/5.صورة عن الخزانة.103530.jpg": "https://www.appsheet.com/image/getimageurl?appName=Untitledspreadsheet-797120343&tableName=%D8%A7%D9%84%D9%85%D8%B9%D9%84%D9%88%D9%85%D8%A7%D8%AA%20%D8%A7%D9%84%D8%B9%D8%A7%D9%85%D8%A9&fileName=%D8%A7%D9%84%D9%85%D8%B9%D9%84%D9%88%D9%85%D8%A7%D8%AA%20%D8%A7%D9%84%D8%B9%D8%A7%D9%85%D8%A9_Images%2F5.%D8%B5%D9%88%D8%B1%D8%A9%20%D8%B9%D9%86%20%D8%A7%D9%84%D8%AE%D8%B2%D8%A7%D9%86%D8%A9.103530.jpg&appVersion=1.000163&signature=553a90b7c42996bc0a79c9f2ba31e1a9c44dbdb88bc121d4224efa417b6ead53",
   "المعلومات العامة_Images/6.صورة عن الخزانة.121256.jpg": "https://www.appsheet.com/image/getimageurl?appName=Untitledspreadsheet-797120343&tableName=%D8%A7%D9%84%D9%85%D8%B9%D9%84%D9%88%D9%85%D8%A7%D8%AA%20%D8%A7%D9%84%D8%B9%D8%A7%D9%85%D8%A9&fileName=%D8%A7%D9%84%D9%85%D8%B9%D9%84%D9%88%D9%85%D8%A7%D8%AA%20%D8%A7%D9%84%D8%B9%D8%A7%D9%85%D8%A9_Images%2F6.%D8%B5%D9%88%D8%B1%D8%A9%20%D8%B9%D9%86%20%D8%A7%D9%84%D8%AE%D8%B2%D8%A7%D9%86%D8%A9.121256.jpg&appVersion=1.000163&signature=e48f6ac3bc446d7294e7ed56e0cc7a6a3b163a94a5d42f54a6e3a4177fa86cf8",
@@ -28,6 +29,8 @@ const originalMainRows = mainRows.map((row) => ({ ...row }));
 const agreements = data["اتفاقيات"] || [];
 const accounts = data["اسماء الحسابات"] || [];
 const tasks = data["جدول الاعمال"] || [];
+const fieldSettings = data["إعدادات الحقول"] || [];
+const projectImages = data["صور المشاريع"] || [];
 const deletedProjectIds = JSON.parse(localStorage.getItem("expertsDeletedProjectIds") || "[]").map(String);
 const deletedAccountIds = JSON.parse(localStorage.getItem("expertsDeletedAccountIds") || "[]").map(String);
 removeDeletedRows(mainRows, deletedProjectIds);
@@ -54,9 +57,10 @@ document.querySelector(".bottom-nav [data-view='projects']")?.replaceChildren(
   document.createTextNode("الحسابات")
 );
 
+const initialParams = new URLSearchParams(window.location.search);
 let state = {
-  view: "home",
-  selectedId: null,
+  view: initialParams.get("view") === "report" ? "report" : "home",
+  selectedId: initialParams.get("id") || null,
   selectedProjectName: null,
   query: "",
   searchOpen: false,
@@ -75,6 +79,7 @@ const labels = {
   form: ["تعديل البيانات", "نموذج إدخال المشروع"],
   accountForm: ["إضافة حساب", "بيانات الحساب والشخص المسؤول"],
   report: ["تقرير PDF", "معاينة التقرير قبل الحفظ"],
+  admin: ["الإدارة", "إضافة حقول جديدة وإدارة إعدادات المشروع"],
 };
 
 function value(row, key, fallback = "-") {
@@ -326,6 +331,17 @@ function renderDetail() {
         ${info("تاريخ قراءة الضغط", value(row, "تاريخ قرائة الضغط"))}
       </div>
     </section>
+    ${activeFieldSettings().length ? `
+      <section class="detail-section">
+        <h2>حقول إضافية</h2>
+        <div class="info-grid">
+          ${activeFieldSettings().map((item) => {
+            const label = String(value(item, "اسم الحقل", ""));
+            return info(label, value(row, label, ""));
+          }).join("")}
+        </div>
+      </section>
+    ` : ""}
     <section class="detail-section">
       <h2>الصور والملاحظات</h2>
       <div class="photo-grid">
@@ -410,7 +426,10 @@ function reportRows(row) {
     ["تاريخ قراءة الضغط", value(row, "تاريخ قرائة الضغط")],
     ["ملاحظات", value(row, "ملاحظات")],
     ["الإجراء المتخذ", value(row, "الاجراء المتخذ")],
-  ];
+  ].concat(activeFieldSettings().map((item) => {
+    const label = String(value(item, "اسم الحقل", ""));
+    return [label, value(row, label, "")];
+  }));
 }
 
 function renderReport() {
@@ -452,6 +471,7 @@ function renderReport() {
         ${reportSignature(row)}
         <div>توقيع العميل</div>
       </section>
+      ${reportGallery(row)}
     </article>
   `;
   document.querySelector("#printReport").addEventListener("click", () => printReport());
@@ -469,7 +489,7 @@ function printReport() {
 }
 
 function openStandaloneReport(row) {
-  const reportUrl = `report.html?id=${encodeURIComponent(row._id)}`;
+  const reportUrl = `index.html?view=report&id=${encodeURIComponent(row._id)}`;
   const manualLink = document.querySelector("#manualDownload");
   if (manualLink) {
     manualLink.href = reportUrl;
@@ -484,7 +504,7 @@ function openStandaloneReport(row) {
 
 async function shareReportWhatsapp(row) {
   const status = document.querySelector("#reportStatus");
-  const reportUrl = new URL(`report.html?id=${encodeURIComponent(row._id)}`, window.location.href).href;
+  const reportUrl = new URL(`index.html?view=report&id=${encodeURIComponent(row._id)}`, window.location.href).href;
   const message = [
     "تقرير معلومات المشروع",
     `الشركة: ${value(row, "اسم الشركة")}`,
@@ -541,6 +561,112 @@ function reportSignature(row) {
   `;
 }
 
+function galleryForProject(row) {
+  return projectImages
+    .filter((item) => String(value(item, "project_id", "")) === String(row?._id || ""))
+    .sort((a, b) => Number(value(a, "sort_order", 0)) - Number(value(b, "sort_order", 0)));
+}
+
+function reportGallery(row) {
+  const images = galleryForProject(row);
+  if (!images.length) return "";
+  return `
+    <section class="report-gallery">
+      <h3>معرض صور المشروع</h3>
+      <div class="report-gallery-grid">
+        ${images.map((item) => {
+          const url = appSheetImageUrl(value(item, "image_url", ""));
+          const caption = value(item, "caption", "");
+          return `<figure>${url ? `<img src="${escapeHtml(url)}" alt="صورة مشروع">` : ""}${caption ? `<figcaption>${escapeHtml(caption)}</figcaption>` : ""}</figure>`;
+        }).join("")}
+      </div>
+    </section>
+  `;
+}
+
+function activeFieldSettings() {
+  return fieldSettings
+    .filter((item) => String(value(item, "فعال", "true")).toLowerCase() !== "false")
+    .sort((a, b) => Number(value(a, "الترتيب", 999)) - Number(value(b, "الترتيب", 999)));
+}
+
+function dynamicFieldsMarkup(row) {
+  return activeFieldSettings().map((item) => {
+    const label = String(value(item, "اسم الحقل", "")).trim();
+    if (!label) return "";
+    const type = String(value(item, "نوع الحقل", "text")).toLowerCase();
+    const current = value(row, label, "");
+    if (type === "textarea") return area(label, current);
+    if (type === "select") {
+      const choices = String(value(item, "الخيارات", "")).split(",").map((option) => option.trim()).filter(Boolean);
+      return field(label, current, "select", choices);
+    }
+    return field(label, current, ["number", "date", "tel"].includes(type) ? type : "text");
+  }).join("");
+}
+
+function renderAdmin() {
+  app.innerHTML = `
+    <section class="detail-section admin-panel">
+      <h2>إعداد بنية الإدارة</h2>
+      <p class="meta">ينشئ جداول إعدادات الحقول وصور المشاريع ويضيف معرف المشروع بأمان.</p>
+      <button class="secondary" type="button" id="setupFeatures">تهيئة الإدارة والمعرض</button>
+      <p class="form-status" id="adminSetupStatus"></p>
+    </section>
+    <section class="detail-section">
+      <h2>إضافة حقل إلى نموذج المشروع</h2>
+      <form class="form" id="adminFieldForm">
+        ${field("اسم الحقل", "")}
+        ${field("نوع الحقل", "text", "select", ["text", "number", "date", "textarea", "select", "tel"])}
+        ${field("الخيارات", "")}
+        ${field("الترتيب", activeFieldSettings().length + 1, "number")}
+        ${field("مطلوب", "false", "select", ["false", "true"])}
+        <button class="primary" type="button" id="saveAdminField">إضافة الحقل</button>
+        <p class="form-status" id="adminFieldStatus"></p>
+      </form>
+    </section>
+    <section class="detail-section">
+      <h2>الحقول المضافة</h2>
+      <div class="list">
+        ${activeFieldSettings().map((item) => `<article class="task-card"><strong>${escapeHtml(value(item, "اسم الحقل", ""))}</strong><div class="meta">${escapeHtml(value(item, "نوع الحقل", "text"))}</div></article>`).join("") || empty()}
+      </div>
+    </section>
+  `;
+  document.querySelector("#setupFeatures")?.addEventListener("click", setupAdminFeatures);
+  document.querySelector("#saveAdminField")?.addEventListener("click", saveAdminField);
+}
+
+async function setupAdminFeatures() {
+  const status = document.querySelector("#adminSetupStatus");
+  if (status) status.textContent = "جاري التهيئة...";
+  try {
+    const response = await callScriptAction("setupFeatures");
+    if (status) status.textContent = response.result?.message || "تمت التهيئة. أعد فتح التطبيق بعد لحظات.";
+    window.setTimeout(loadRemoteDatabase, 1200);
+  } catch (error) {
+    if (status) status.textContent = `فشلت التهيئة: ${error.message || error}`;
+  }
+}
+
+async function saveAdminField() {
+  const status = document.querySelector("#adminFieldStatus");
+  const values = {};
+  document.querySelectorAll("#adminFieldForm [data-field]").forEach((input) => { values[input.dataset.field] = input.value; });
+  const fieldName = String(values["اسم الحقل"] || "").trim();
+  if (!fieldName) {
+    if (status) status.textContent = "اكتب اسم الحقل أولا.";
+    return;
+  }
+  if (status) status.textContent = "جاري إضافة الحقل...";
+  try {
+    await callScriptAction("addField", { payload: JSON.stringify(values) });
+    if (status) status.textContent = "تمت إضافة الحقل إلى الرئيسية وإعدادات الحقول.";
+    window.setTimeout(loadRemoteDatabase, 800);
+  } catch (error) {
+    if (status) status.textContent = `تعذر إضافة الحقل: ${error.message || error}`;
+  }
+}
+
 function renderForm() {
   const row = mainRows.find((item) => String(item._id) === String(state.selectedId)) || {};
   app.innerHTML = `
@@ -564,9 +690,11 @@ function renderForm() {
       ${field("تاريخ قراءة الضغط", value(row, "تاريخ قرائة الضغط", ""), "date")}
       ${area("ملاحظات", value(row, "ملاحظات", ""))}
       ${area("الإجراء المتخذ", value(row, "الاجراء المتخذ", ""))}
+      ${dynamicFieldsMarkup(row)}
       ${imageField("صورة عن الخزانة", "cabinetImage")}
       ${imageField("صورة عن الضغط", "pressureImage")}
       ${imageField("صورة ملاحظات", "notesImage")}
+      ${galleryField()}
       <div class="field">
         <label>توقيع المهندس المقيم</label>
         <div class="signature-pad">
@@ -586,6 +714,7 @@ function renderForm() {
     </form>
   `;
   setupImageInputs();
+  setupGalleryInputs();
   setupSignaturePad();
   document.querySelector("#saveForm").addEventListener("click", () => saveProjectForm(row));
   document.querySelector("#cancelForm").addEventListener("click", () => goBack());
@@ -643,6 +772,30 @@ function setupImageInputs() {
     galleryInput.addEventListener("change", handleSelection);
     cameraInput.addEventListener("change", handleSelection);
   });
+}
+
+function setupGalleryInputs() {
+  selectedGalleryFiles = [];
+  const galleryInput = document.querySelector("#projectGalleryInput");
+  const cameraInput = document.querySelector("#projectGalleryCamera");
+  const preview = document.querySelector("#galleryPickerPreview");
+  if (!galleryInput || !cameraInput || !preview) return;
+
+  function addFiles(fileList) {
+    const remaining = Math.max(0, 12 - selectedGalleryFiles.length);
+    [...(fileList || [])].slice(0, remaining).forEach((file) => {
+      const entry = { name: file.name || `${Date.now()}.jpg`, type: "image/jpeg", data: "" };
+      entry.ready = imageFileToDataUrl(file).then((dataUrl) => {
+        entry.data = dataUrl;
+        return entry;
+      });
+      selectedGalleryFiles.push(entry);
+    });
+    preview.innerHTML = selectedGalleryFiles.map((file, index) => `<span class="gallery-file-chip">${index + 1}. ${escapeHtml(file.name)}</span>`).join("");
+  }
+
+  galleryInput.addEventListener("change", (event) => addFiles(event.target.files));
+  cameraInput.addEventListener("change", (event) => addFiles(event.target.files));
 }
 
 function setupSignaturePad() {
@@ -747,7 +900,10 @@ function imageFileToDataUrl(file) {
 }
 
 async function waitForSelectedFiles() {
-  await Promise.all(Object.values(selectedFormFiles).map((file) => file.ready).filter(Boolean));
+  await Promise.all([
+    ...Object.values(selectedFormFiles).map((file) => file.ready).filter(Boolean),
+    ...selectedGalleryFiles.map((file) => file.ready).filter(Boolean),
+  ]);
 }
 
 function collectProjectForm(originalRow = {}) {
@@ -785,6 +941,13 @@ async function saveProjectForm(originalRow = {}) {
     id: originalRow._id || fields._id,
     fields: remoteFields,
     files: remoteFiles,
+    galleryFiles: selectedGalleryFiles.map((file, index) => ({
+      name: galleryImageFileName(fields, file.name, index),
+      type: file.type || "image/jpeg",
+      data: file.data || "",
+      caption: "",
+      sortOrder: index + 1,
+    })),
   };
 
   if (status) status.textContent = "جاري الحفظ...";
@@ -840,6 +1003,11 @@ function clientImageFileName(fields, fieldName, originalName) {
     cleanFileNamePart(fieldName || "صورة"),
     stamp,
   ].join("_") + `.${ext}`;
+}
+
+function galleryImageFileName(fields, originalName, index) {
+  const base = clientImageFileName(fields, `معرض-${index + 1}`, originalName);
+  return base;
 }
 
 function cleanFileNamePart(text) {
@@ -1012,6 +1180,8 @@ function loadRemoteDatabase(options = {}) {
         replaceRows(accounts, response.data["اسماء الحسابات"] || []);
         replaceRows(tasks, response.data["جدول الاعمال"] || []);
         replaceRows(agreements, response.data["اتفاقيات"] || []);
+        replaceRows(fieldSettings, response.data["إعدادات الحقول"] || []);
+        replaceRows(projectImages, response.data["صور المشاريع"] || []);
         applyLocalChanges();
         state.syncStatus = `تم تحميل ${mainRows.length} سجل من قاعدة البيانات`;
         if (options.selectKey) {
@@ -1342,6 +1512,9 @@ function render() {
       case "report":
         renderReport();
         break;
+      case "admin":
+        renderAdmin();
+        break;
       case "tasks":
         renderTasks();
         break;
@@ -1419,6 +1592,21 @@ function imageField(label, id) {
       <div class="image-file-name">اختر صورة أو التقط صورة بالكاميرا</div>
       <input id="${id}Gallery" data-source="gallery" class="visually-hidden-file" type="file" accept="image/*">
       <input id="${id}Camera" data-source="camera" class="visually-hidden-file" type="file" accept="image/*" capture="environment">
+    </div>
+  `;
+}
+
+function galleryField() {
+  return `
+    <div class="field project-gallery-field">
+      <label>صور إضافية للمشروع</label>
+      <div class="gallery-picker-preview" id="galleryPickerPreview"><span>لم يتم اختيار صور إضافية</span></div>
+      <div class="image-actions">
+        <label class="secondary image-button" for="projectGalleryInput">اختيار عدة صور</label>
+        <label class="primary image-button" for="projectGalleryCamera">التقاط صورة</label>
+      </div>
+      <input id="projectGalleryInput" class="visually-hidden-file" type="file" accept="image/*" multiple>
+      <input id="projectGalleryCamera" class="visually-hidden-file" type="file" accept="image/*" capture="environment">
     </div>
   `;
 }

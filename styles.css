@@ -497,6 +497,32 @@ main {
   line-height: 1.5;
 }
 
+.admin-panel .secondary {
+  width: 100%;
+}
+
+.gallery-picker-preview {
+  min-height: 72px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  align-items: center;
+  padding: 10px;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  background: var(--soft);
+}
+
+.gallery-file-chip {
+  max-width: 100%;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel);
+  overflow-wrap: anywhere;
+  font-size: 12px;
+}
+
 .field label {
   display: block;
   margin-bottom: 5px;
@@ -763,6 +789,44 @@ main {
   object-fit: contain;
 }
 
+.report-gallery {
+  margin-top: 18px;
+  break-before: auto;
+}
+
+.report-gallery h3 {
+  margin: 0 0 10px;
+  font-size: 16px;
+}
+
+.report-gallery-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.report-gallery-grid figure {
+  margin: 0;
+  break-inside: avoid;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.report-gallery-grid img {
+  display: block;
+  width: 100%;
+  height: 190px;
+  object-fit: contain;
+  background: #f8fafc;
+}
+
+.report-gallery-grid figcaption {
+  padding: 7px;
+  font-size: 12px;
+}
+
 .task-card,
 .account-card {
   padding: 12px;
@@ -837,7 +901,7 @@ main {
   width: min(390px, 100vw);
   height: 72px;
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(6, 1fr);
   background: var(--panel);
   border-top: 1px solid var(--line);
 }
@@ -846,7 +910,7 @@ main {
   border: 0;
   background: transparent;
   color: var(--muted);
-  font-size: 10px;
+  font-size: 9px;
   display: grid;
   place-items: center;
   align-content: center;
