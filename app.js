@@ -6,6 +6,7 @@ const DATABASE_ENDPOINT = window.EXPERTS_DATABASE_ENDPOINT || localStorage.getIt
 let selectedFormFiles = {};
 let selectedGalleryFiles = [];
 let adminEditingFieldId = null;
+let copiedProjectSeed = null;
 const SIGNED_IMAGE_URLS = {
   "المعلومات العامة_Images/5.صورة عن الخزانة.103530.jpg": "https://www.appsheet.com/image/getimageurl?appName=Untitledspreadsheet-797120343&tableName=%D8%A7%D9%84%D9%85%D8%B9%D9%84%D9%88%D9%85%D8%A7%D8%AA%20%D8%A7%D9%84%D8%B9%D8%A7%D9%85%D8%A9&fileName=%D8%A7%D9%84%D9%85%D8%B9%D9%84%D9%88%D9%85%D8%A7%D8%AA%20%D8%A7%D9%84%D8%B9%D8%A7%D9%85%D8%A9_Images%2F5.%D8%B5%D9%88%D8%B1%D8%A9%20%D8%B9%D9%86%20%D8%A7%D9%84%D8%AE%D8%B2%D8%A7%D9%86%D8%A9.103530.jpg&appVersion=1.000163&signature=553a90b7c42996bc0a79c9f2ba31e1a9c44dbdb88bc121d4224efa417b6ead53",
   "المعلومات العامة_Images/6.صورة عن الخزانة.121256.jpg": "https://www.appsheet.com/image/getimageurl?appName=Untitledspreadsheet-797120343&tableName=%D8%A7%D9%84%D9%85%D8%B9%D9%84%D9%88%D9%85%D8%A7%D8%AA%20%D8%A7%D9%84%D8%B9%D8%A7%D9%85%D8%A9&fileName=%D8%A7%D9%84%D9%85%D8%B9%D9%84%D9%88%D9%85%D8%A7%D8%AA%20%D8%A7%D9%84%D8%B9%D8%A7%D9%85%D8%A9_Images%2F6.%D8%B5%D9%88%D8%B1%D8%A9%20%D8%B9%D9%86%20%D8%A7%D9%84%D8%AE%D8%B2%D8%A7%D9%86%D8%A9.121256.jpg&appVersion=1.000163&signature=e48f6ac3bc446d7294e7ed56e0cc7a6a3b163a94a5d42f54a6e3a4177fa86cf8",
@@ -82,6 +83,28 @@ const labels = {
   report: ["تقرير PDF", "معاينة التقرير قبل الحفظ"],
   admin: ["الإدارة", "إضافة حقول جديدة وإدارة إعدادات المشروع"],
 };
+
+const BASE_FORM_FIELDS = [
+  { key: "اسم الشركة", label: "اسم الشركة", type: "select", options: () => allCompanyNames() },
+  { key: "اسم المشروع", label: "اسم المشروع", type: "text" },
+  { key: "عنوان المشروع", label: "عنوان المشروع", type: "text" },
+  { key: "الطابق", label: "الطابق", type: "text" },
+  { key: "اسم الشقة/رقمها", label: "اسم الشقة/رقمها", type: "text" },
+  { key: "رقم الخزانة", label: "رقم الخزانة", type: "text" },
+  { key: "عدد لوبات التدفئة تحت البلاط", label: "عدد لوبات التدفئة تحت البلاط", type: "number" },
+  { key: "اجمالي طول الانابيب", label: "اجمالي طول الانابيب", type: "text" },
+  { key: "نوع البويلر", label: "نوع البويلر", type: "select", options: () => unique(mainRows, "نوع البويلر") },
+  { key: "قياس البويلر", label: "قياس البويلر", type: "text" },
+  { key: "نوع الخط الرئيسي", label: "نوع الخط الرئيسي", type: "select", options: () => unique(mainRows, "نوع الخط الرئيسي") },
+  { key: "قياس الخط الرئيسي", label: "قياس الخط الرئيسي", type: "text" },
+  { key: "ROOM BY ROOM", label: "ROOM BY ROOM", type: "select", choices: ["true", "false"] },
+  { key: "تركيب البانيل", label: "تركيب البانيل", type: "select", options: () => unique(mainRows, "تركيب البانيل") },
+  { key: "نسخة المخطط", label: "نسخة المخطط", type: "text" },
+  { key: "الضغط", label: "الضغط", type: "number" },
+  { key: "تاريخ قرائة الضغط", label: "تاريخ قراءة الضغط", type: "date" },
+  { key: "ملاحظات", label: "ملاحظات", type: "textarea" },
+  { key: "الاجراء المتخذ", label: "الإجراء المتخذ", type: "textarea" },
+];
 
 function value(row, key, fallback = "-") {
   let found = row?.[key];
@@ -337,8 +360,9 @@ function renderDetail() {
         <h2>حقول إضافية</h2>
         <div class="info-grid">
           ${activeFieldSettings().map((item) => {
-            const label = String(value(item, "اسم الحقل", ""));
-            return info(label, value(row, label, ""));
+            const key = settingFieldKey(item);
+            const label = String(value(item, "اسم العرض", value(item, "اسم الحقل", key)));
+            return info(label, value(row, key, ""));
           }).join("")}
         </div>
       </section>
@@ -359,8 +383,14 @@ function renderDetail() {
       </div>
     </section>
   `;
-  document.querySelector("#editRecord").addEventListener("click", () => navigate("form", row._id));
-  document.querySelector("#copyRecord").addEventListener("click", () => navigate("form", row._id));
+  document.querySelector("#editRecord").addEventListener("click", () => {
+    copiedProjectSeed = null;
+    navigate("form", row._id);
+  });
+  document.querySelector("#copyRecord").addEventListener("click", () => {
+    copiedProjectSeed = { ...row, _id: createRecordId() };
+    navigate("form", null);
+  });
   document.querySelector("#pdfReport").addEventListener("click", () => navigate("report", row._id));
   const actions = document.querySelector(".actions");
   actions?.insertAdjacentHTML("beforeend", `<button class="danger wide-action" type="button" id="deleteRecord">حذف السجل</button>`);
@@ -428,8 +458,9 @@ function reportRows(row) {
     ["ملاحظات", value(row, "ملاحظات")],
     ["الإجراء المتخذ", value(row, "الاجراء المتخذ")],
   ].concat(activeFieldSettings().map((item) => {
-    const label = String(value(item, "اسم الحقل", ""));
-    return [label, value(row, label, "")];
+    const key = settingFieldKey(item);
+    const label = String(value(item, "اسم العرض", value(item, "اسم الحقل", key)));
+    return [label, value(row, key, "")];
   }));
 }
 
@@ -585,34 +616,77 @@ function reportGallery(row) {
   `;
 }
 
+function settingFieldKey(item) {
+  return String(value(item, "مفتاح الحقل", value(item, "اسم الحقل", ""))).trim();
+}
+
+function adminFieldDefinitions() {
+  const baseKeys = new Set(BASE_FORM_FIELDS.map((item) => item.key));
+  const definitions = BASE_FORM_FIELDS.map((base, index) => {
+    const setting = fieldSettings.find((item) => settingFieldKey(item) === base.key);
+    return {
+      ...base,
+      ...(setting || {}),
+      _id: setting?._id || `base:${base.key}`,
+      "مفتاح الحقل": base.key,
+      "اسم الحقل": base.key,
+      "اسم العرض": value(setting, "اسم العرض", base.label),
+      "نوع الحقل": value(setting, "نوع الحقل", base.type),
+      "الخيارات": value(setting, "الخيارات", ""),
+      "مطلوب": value(setting, "مطلوب", "false"),
+      "الترتيب": value(setting, "الترتيب", index + 1),
+      "فعال": value(setting, "فعال", "true"),
+      "حقل أساسي": "true",
+    };
+  });
+  fieldSettings.forEach((setting) => {
+    const key = settingFieldKey(setting);
+    if (!key || baseKeys.has(key)) return;
+    definitions.push({
+      ...setting,
+      key,
+      label: value(setting, "اسم العرض", value(setting, "اسم الحقل", key)),
+      type: value(setting, "نوع الحقل", "text"),
+      "مفتاح الحقل": key,
+      "اسم العرض": value(setting, "اسم العرض", value(setting, "اسم الحقل", key)),
+      "حقل أساسي": "false",
+    });
+  });
+  return definitions.sort((a, b) => Number(value(a, "الترتيب", 999)) - Number(value(b, "الترتيب", 999)));
+}
+
+function configurableFieldsMarkup(row) {
+  return visibleFieldDefinitions()
+    .map((item) => {
+      const key = settingFieldKey(item);
+      const label = String(value(item, "اسم العرض", value(item, "اسم الحقل", key))).trim() || key;
+      const type = String(value(item, "نوع الحقل", item.type || "text")).toLowerCase();
+      const required = String(value(item, "مطلوب", "false")).toLowerCase() === "true";
+      const configuredChoices = String(value(item, "الخيارات", "")).split(/[\n,،]+/).map((option) => option.trim()).filter(Boolean);
+      const choices = configuredChoices.length ? configuredChoices : (item.choices || item.options?.() || []);
+      const current = value(row, key, "");
+      if (type === "textarea") return area(label, current, key, required);
+      return field(label, current, ["number", "date", "tel", "select"].includes(type) ? type : "text", choices, key, required);
+    }).join("");
+}
+
+function visibleFieldDefinitions() {
+  return adminFieldDefinitions().filter((item) => String(value(item, "فعال", "true")).toLowerCase() !== "false");
+}
+
+function configuredFieldValue(row, item) {
+  const key = settingFieldKey(item);
+  return key === "ROOM BY ROOM" ? boolText(row[key]) : value(row, key, "");
+}
+
 function activeFieldSettings() {
-  return fieldSettings
-    .filter((item) => String(value(item, "فعال", "true")).toLowerCase() !== "false")
-    .sort((a, b) => Number(value(a, "الترتيب", 999)) - Number(value(b, "الترتيب", 999)));
-}
-
-function sortedFieldSettings() {
-  return [...fieldSettings]
-    .sort((a, b) => Number(value(a, "الترتيب", 999)) - Number(value(b, "الترتيب", 999)));
-}
-
-function dynamicFieldsMarkup(row) {
-  return activeFieldSettings().map((item) => {
-    const label = String(value(item, "اسم الحقل", "")).trim();
-    if (!label) return "";
-    const type = String(value(item, "نوع الحقل", "text")).toLowerCase();
-    const current = value(row, label, "");
-    if (type === "textarea") return area(label, current);
-    if (type === "select") {
-      const choices = String(value(item, "الخيارات", "")).split(/[\n,،]+/).map((option) => option.trim()).filter(Boolean);
-      return field(label, current, "select", choices);
-    }
-    return field(label, current, ["number", "date", "tel"].includes(type) ? type : "text");
-  }).join("");
+  const baseKeys = new Set(BASE_FORM_FIELDS.map((item) => item.key));
+  return visibleFieldDefinitions().filter((item) => !baseKeys.has(settingFieldKey(item)));
 }
 
 function renderAdmin() {
-  const editingField = fieldSettings.find((item) => String(item._id) === String(adminEditingFieldId));
+  const definitions = adminFieldDefinitions();
+  const editingField = definitions.find((item) => String(item._id) === String(adminEditingFieldId));
   const editing = Boolean(editingField);
   const currentType = editing ? value(editingField, "نوع الحقل", "text") : "text";
   app.innerHTML = `
@@ -625,13 +699,13 @@ function renderAdmin() {
     <section class="detail-section">
       <h2>${editing ? "تعديل الحقل" : "إضافة حقل إلى نموذج المشروع"}</h2>
       <form class="form" id="adminFieldForm">
-        ${field("اسم الحقل", editing ? value(editingField, "اسم الحقل", "") : "")}
+        ${editing ? `<div class="protected-field-key"><span>عمود قاعدة البيانات</span><strong>${escapeHtml(settingFieldKey(editingField))}</strong><small>محمي للحفاظ على البيانات القديمة</small></div>${field("اسم العرض", value(editingField, "اسم العرض", value(editingField, "اسم الحقل", "")))}` : field("اسم الحقل", "")}
         ${field("نوع الحقل", currentType, "select", ["text", "number", "date", "textarea", "select", "tel"])}
         <div class="field" id="adminOptionsField">
           <label>الخيارات <span class="field-hint">اكتب كل خيار في سطر منفصل</span></label>
           <textarea data-field="الخيارات">${escapeHtml(editing ? value(editingField, "الخيارات", "") : "")}</textarea>
         </div>
-        ${field("الترتيب", editing ? value(editingField, "الترتيب", 999) : sortedFieldSettings().length + 1, "number")}
+        ${field("الترتيب", editing ? value(editingField, "الترتيب", 999) : definitions.length + 1, "number")}
         ${field("مطلوب", editing ? String(value(editingField, "مطلوب", "false")).toLowerCase() : "false", "select", ["false", "true"])}
         ${field("فعال", editing ? String(value(editingField, "فعال", "true")).toLowerCase() : "true", "select", ["true", "false"])}
         <div class="admin-form-actions">
@@ -642,9 +716,9 @@ function renderAdmin() {
       </form>
     </section>
     <section class="detail-section">
-      <h2>الحقول المضافة</h2>
+      <h2>جميع حقول النموذج</h2>
       <div class="list">
-        ${sortedFieldSettings().map((item) => `<article class="task-card admin-field-card"><div><strong>${escapeHtml(value(item, "اسم الحقل", ""))}</strong><div class="meta">${escapeHtml(value(item, "نوع الحقل", "text"))} · ${String(value(item, "فعال", "true")).toLowerCase() === "false" ? "غير فعال" : "فعال"}</div></div><button class="secondary small-action" type="button" data-edit-admin-field="${escapeHtml(item._id)}">تعديل</button></article>`).join("") || empty()}
+        ${definitions.map((item) => `<article class="task-card admin-field-card"><div><strong>${escapeHtml(value(item, "اسم العرض", value(item, "اسم الحقل", "")))}</strong><div class="meta">${escapeHtml(settingFieldKey(item))} · ${escapeHtml(value(item, "نوع الحقل", "text"))} · ${String(value(item, "فعال", "true")).toLowerCase() === "false" ? "غير فعال" : "فعال"}</div></div><button class="secondary small-action" type="button" data-edit-admin-field="${escapeHtml(item._id)}">تعديل</button></article>`).join("") || empty()}
       </div>
     </section>
   `;
@@ -686,17 +760,23 @@ async function saveAdminField() {
   const status = document.querySelector("#adminFieldStatus");
   const values = {};
   document.querySelectorAll("#adminFieldForm [data-field]").forEach((input) => { values[input.dataset.field] = input.value; });
-  const fieldName = String(values["اسم الحقل"] || "").trim();
+  const editingDefinition = adminFieldDefinitions().find((item) => String(item._id) === String(adminEditingFieldId));
+  const fieldName = String(editingDefinition ? values["اسم العرض"] : values["اسم الحقل"] || "").trim();
   if (!fieldName) {
     if (status) status.textContent = "اكتب اسم الحقل أولا.";
     return;
   }
   const selectChoices = String(values["الخيارات"] || "").split(/[\n,،]+/).map((option) => option.trim()).filter(Boolean);
-  if (values["نوع الحقل"] === "select" && selectChoices.length < 2) {
+  const usesBuiltInChoices = Boolean(editingDefinition?.options || editingDefinition?.choices);
+  if (values["نوع الحقل"] === "select" && selectChoices.length < 2 && !usesBuiltInChoices) {
     if (status) status.textContent = "أضف خيارين على الأقل للحقل من نوع select.";
     return;
   }
-  if (adminEditingFieldId) values._id = adminEditingFieldId;
+  if (editingDefinition) {
+    values["مفتاح الحقل"] = settingFieldKey(editingDefinition);
+    values["اسم الحقل"] = settingFieldKey(editingDefinition);
+    if (!String(editingDefinition._id).startsWith("base:")) values._id = editingDefinition._id;
+  }
   const isEditing = Boolean(adminEditingFieldId);
   if (status) status.textContent = isEditing ? "جاري حفظ التعديل..." : "جاري إضافة الحقل...";
   try {
@@ -710,30 +790,11 @@ async function saveAdminField() {
 }
 
 function renderForm() {
-  const existingRow = mainRows.find((item) => String(item._id) === String(state.selectedId)) || {};
+  const existingRow = copiedProjectSeed || mainRows.find((item) => String(item._id) === String(state.selectedId)) || {};
   const row = existingRow._id ? existingRow : { ...existingRow, _id: createRecordId() };
   app.innerHTML = `
     <form class="form">
-      ${field("اسم الشركة", value(row, "اسم الشركة", ""), "select", allCompanyNames())}
-      ${field("اسم المشروع", value(row, "اسم المشروع", ""))}
-      ${field("عنوان المشروع", value(row, "عنوان المشروع", ""))}
-      ${field("الطابق", value(row, "الطابق ", ""))}
-      ${field("اسم الشقة/رقمها", value(row, "اسم الشقة/رقمها", ""))}
-      ${field("رقم الخزانة", value(row, "رقم الخزانة", ""))}
-      ${field("عدد لوبات التدفئة تحت البلاط", value(row, "عدد لوبات التدفئة تحت البلاط", ""), "number")}
-      ${field("اجمالي طول الانابيب", value(row, "اجمالي طول الانابيب", ""))}
-      ${field("نوع البويلر", value(row, "نوع البويلر", ""), "select", unique(mainRows, "نوع البويلر"))}
-      ${field("قياس البويلر", value(row, "قياس البويلر", ""))}
-      ${field("نوع الخط الرئيسي", value(row, "نوع الخط الرئيسي", ""), "select", unique(mainRows, "نوع الخط الرئيسي"))}
-      ${field("قياس الخط الرئيسي", value(row, "قياس الخط الرئيسي", ""))}
-      ${field("ROOM BY ROOM", value(row, "ROOM BY ROOM", ""), "select", ["true", "false"])}
-      ${field("تركيب البانيل", value(row, "تركيب البانيل", ""), "select", unique(mainRows, "تركيب البانيل"))}
-      ${field("نسخة المخطط", value(row, "نسخة المخطط", ""))}
-      ${field("الضغط", value(row, "الضغط", ""), "number")}
-      ${field("تاريخ قراءة الضغط", value(row, "تاريخ قرائة الضغط", ""), "date")}
-      ${area("ملاحظات", value(row, "ملاحظات", ""))}
-      ${area("الإجراء المتخذ", value(row, "الاجراء المتخذ", ""))}
-      ${dynamicFieldsMarkup(row)}
+      ${configurableFieldsMarkup(row)}
       ${imageField("صورة عن الخزانة", "cabinetImage")}
       ${imageField("صورة عن الضغط", "pressureImage")}
       ${imageField("صورة ملاحظات", "notesImage")}
@@ -760,7 +821,10 @@ function renderForm() {
   setupGalleryInputs();
   setupSignaturePad();
   document.querySelector("#saveForm").addEventListener("click", () => saveProjectForm(row));
-  document.querySelector("#cancelForm").addEventListener("click", () => goBack());
+  document.querySelector("#cancelForm").addEventListener("click", () => {
+    copiedProjectSeed = null;
+    goBack();
+  });
 }
 
 function renderAccountForm() {
@@ -969,6 +1033,11 @@ function createRecordId() {
 async function saveProjectForm(originalRow = {}) {
   const button = document.querySelector("#saveForm");
   const status = document.querySelector("#formStatus");
+  const form = button?.closest("form");
+  if (form && !form.reportValidity()) {
+    if (status) status.textContent = "أكمل الحقول المطلوبة أولا.";
+    return;
+  }
   if (button) button.disabled = true;
   if (status) status.textContent = "جاري تجهيز الصور...";
   await waitForSelectedFiles();
@@ -1627,16 +1696,17 @@ function info(label, text) {
   return `<div class="info-row"><span>${escapeHtml(label)}</span><strong>${escapeHtml(text)}</strong></div>`;
 }
 
-function field(label, current, type = "text", options = []) {
+function field(label, current, type = "text", options = [], dataKey = label, required = false) {
+  const requiredAttribute = required ? " required" : "";
   if (type === "select") {
     const choices = [...new Set(options.filter(Boolean))];
-    return `<div class="field"><label>${escapeHtml(label)}</label><select data-field="${escapeHtml(label)}"><option value="">اختر ${escapeHtml(label)}</option>${choices.map((option) => `<option value="${escapeHtml(option)}" ${option === current ? "selected" : ""}>${escapeHtml(option)}</option>`).join("")}</select></div>`;
+    return `<div class="field"><label>${escapeHtml(label)}${required ? " *" : ""}</label><select data-field="${escapeHtml(dataKey)}"${requiredAttribute}><option value="">اختر ${escapeHtml(label)}</option>${choices.map((option) => `<option value="${escapeHtml(option)}" ${String(option) === String(current) ? "selected" : ""}>${escapeHtml(option)}</option>`).join("")}</select></div>`;
   }
-  return `<div class="field"><label>${escapeHtml(label)}</label><input data-field="${escapeHtml(label)}" type="${type}" value="${escapeHtml(current)}"></div>`;
+  return `<div class="field"><label>${escapeHtml(label)}${required ? " *" : ""}</label><input data-field="${escapeHtml(dataKey)}" type="${type}" value="${escapeHtml(current)}"${requiredAttribute}></div>`;
 }
 
-function area(label, current) {
-  return `<div class="field"><label>${escapeHtml(label)}</label><textarea data-field="${escapeHtml(label)}">${escapeHtml(current)}</textarea></div>`;
+function area(label, current, dataKey = label, required = false) {
+  return `<div class="field"><label>${escapeHtml(label)}${required ? " *" : ""}</label><textarea data-field="${escapeHtml(dataKey)}"${required ? " required" : ""}>${escapeHtml(current)}</textarea></div>`;
 }
 
 function imageField(label, id) {
@@ -1732,6 +1802,7 @@ addBtn.addEventListener("click", () => {
     navigate("accountForm", null);
     return;
   }
+  copiedProjectSeed = null;
   navigate("form", null);
 });
 

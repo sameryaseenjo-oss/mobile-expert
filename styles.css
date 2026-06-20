@@ -522,6 +522,21 @@ main {
   justify-content: space-between;
 }
 
+.protected-field-key {
+  display: grid;
+  gap: 4px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--soft);
+}
+
+.protected-field-key span,
+.protected-field-key small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
 .gallery-picker-preview {
   min-height: 72px;
   display: flex;
