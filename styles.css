@@ -501,6 +501,27 @@ main {
   width: 100%;
 }
 
+.field-hint {
+  margin-inline-start: 6px;
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.admin-form-actions,
+.admin-field-card {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.admin-form-actions > * {
+  flex: 1;
+}
+
+.admin-field-card {
+  justify-content: space-between;
+}
+
 .gallery-picker-preview {
   min-height: 72px;
   display: flex;

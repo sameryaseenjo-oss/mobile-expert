@@ -5,6 +5,7 @@ const APPSHEET_APP_VERSION = "1.000163";
 const DATABASE_ENDPOINT = window.EXPERTS_DATABASE_ENDPOINT || localStorage.getItem("expertsDatabaseEndpoint") || "";
 let selectedFormFiles = {};
 let selectedGalleryFiles = [];
+let adminEditingFieldId = null;
 const SIGNED_IMAGE_URLS = {
   "المعلومات العامة_Images/5.صورة عن الخزانة.103530.jpg": "https://www.appsheet.com/image/getimageurl?appName=Untitledspreadsheet-797120343&tableName=%D8%A7%D9%84%D9%85%D8%B9%D9%84%D9%88%D9%85%D8%A7%D8%AA%20%D8%A7%D9%84%D8%B9%D8%A7%D9%85%D8%A9&fileName=%D8%A7%D9%84%D9%85%D8%B9%D9%84%D9%88%D9%85%D8%A7%D8%AA%20%D8%A7%D9%84%D8%B9%D8%A7%D9%85%D8%A9_Images%2F5.%D8%B5%D9%88%D8%B1%D8%A9%20%D8%B9%D9%86%20%D8%A7%D9%84%D8%AE%D8%B2%D8%A7%D9%86%D8%A9.103530.jpg&appVersion=1.000163&signature=553a90b7c42996bc0a79c9f2ba31e1a9c44dbdb88bc121d4224efa417b6ead53",
   "المعلومات العامة_Images/6.صورة عن الخزانة.121256.jpg": "https://www.appsheet.com/image/getimageurl?appName=Untitledspreadsheet-797120343&tableName=%D8%A7%D9%84%D9%85%D8%B9%D9%84%D9%88%D9%85%D8%A7%D8%AA%20%D8%A7%D9%84%D8%B9%D8%A7%D9%85%D8%A9&fileName=%D8%A7%D9%84%D9%85%D8%B9%D9%84%D9%88%D9%85%D8%A7%D8%AA%20%D8%A7%D9%84%D8%B9%D8%A7%D9%85%D8%A9_Images%2F6.%D8%B5%D9%88%D8%B1%D8%A9%20%D8%B9%D9%86%20%D8%A7%D9%84%D8%AE%D8%B2%D8%A7%D9%86%D8%A9.121256.jpg&appVersion=1.000163&signature=e48f6ac3bc446d7294e7ed56e0cc7a6a3b163a94a5d42f54a6e3a4177fa86cf8",
@@ -590,6 +591,11 @@ function activeFieldSettings() {
     .sort((a, b) => Number(value(a, "الترتيب", 999)) - Number(value(b, "الترتيب", 999)));
 }
 
+function sortedFieldSettings() {
+  return [...fieldSettings]
+    .sort((a, b) => Number(value(a, "الترتيب", 999)) - Number(value(b, "الترتيب", 999)));
+}
+
 function dynamicFieldsMarkup(row) {
   return activeFieldSettings().map((item) => {
     const label = String(value(item, "اسم الحقل", "")).trim();
@@ -598,7 +604,7 @@ function dynamicFieldsMarkup(row) {
     const current = value(row, label, "");
     if (type === "textarea") return area(label, current);
     if (type === "select") {
-      const choices = String(value(item, "الخيارات", "")).split(",").map((option) => option.trim()).filter(Boolean);
+      const choices = String(value(item, "الخيارات", "")).split(/[\n,،]+/).map((option) => option.trim()).filter(Boolean);
       return field(label, current, "select", choices);
     }
     return field(label, current, ["number", "date", "tel"].includes(type) ? type : "text");
@@ -606,6 +612,9 @@ function dynamicFieldsMarkup(row) {
 }
 
 function renderAdmin() {
+  const editingField = fieldSettings.find((item) => String(item._id) === String(adminEditingFieldId));
+  const editing = Boolean(editingField);
+  const currentType = editing ? value(editingField, "نوع الحقل", "text") : "text";
   app.innerHTML = `
     <section class="detail-section admin-panel">
       <h2>إعداد بنية الإدارة</h2>
@@ -614,26 +623,51 @@ function renderAdmin() {
       <p class="form-status" id="adminSetupStatus"></p>
     </section>
     <section class="detail-section">
-      <h2>إضافة حقل إلى نموذج المشروع</h2>
+      <h2>${editing ? "تعديل الحقل" : "إضافة حقل إلى نموذج المشروع"}</h2>
       <form class="form" id="adminFieldForm">
-        ${field("اسم الحقل", "")}
-        ${field("نوع الحقل", "text", "select", ["text", "number", "date", "textarea", "select", "tel"])}
-        ${field("الخيارات", "")}
-        ${field("الترتيب", activeFieldSettings().length + 1, "number")}
-        ${field("مطلوب", "false", "select", ["false", "true"])}
-        <button class="primary" type="button" id="saveAdminField">إضافة الحقل</button>
+        ${field("اسم الحقل", editing ? value(editingField, "اسم الحقل", "") : "")}
+        ${field("نوع الحقل", currentType, "select", ["text", "number", "date", "textarea", "select", "tel"])}
+        <div class="field" id="adminOptionsField">
+          <label>الخيارات <span class="field-hint">اكتب كل خيار في سطر منفصل</span></label>
+          <textarea data-field="الخيارات">${escapeHtml(editing ? value(editingField, "الخيارات", "") : "")}</textarea>
+        </div>
+        ${field("الترتيب", editing ? value(editingField, "الترتيب", 999) : sortedFieldSettings().length + 1, "number")}
+        ${field("مطلوب", editing ? String(value(editingField, "مطلوب", "false")).toLowerCase() : "false", "select", ["false", "true"])}
+        ${field("فعال", editing ? String(value(editingField, "فعال", "true")).toLowerCase() : "true", "select", ["true", "false"])}
+        <div class="admin-form-actions">
+          <button class="primary" type="button" id="saveAdminField">${editing ? "حفظ التعديل" : "إضافة الحقل"}</button>
+          ${editing ? '<button class="secondary" type="button" id="cancelAdminEdit">إلغاء</button>' : ""}
+        </div>
         <p class="form-status" id="adminFieldStatus"></p>
       </form>
     </section>
     <section class="detail-section">
       <h2>الحقول المضافة</h2>
       <div class="list">
-        ${activeFieldSettings().map((item) => `<article class="task-card"><strong>${escapeHtml(value(item, "اسم الحقل", ""))}</strong><div class="meta">${escapeHtml(value(item, "نوع الحقل", "text"))}</div></article>`).join("") || empty()}
+        ${sortedFieldSettings().map((item) => `<article class="task-card admin-field-card"><div><strong>${escapeHtml(value(item, "اسم الحقل", ""))}</strong><div class="meta">${escapeHtml(value(item, "نوع الحقل", "text"))} · ${String(value(item, "فعال", "true")).toLowerCase() === "false" ? "غير فعال" : "فعال"}</div></div><button class="secondary small-action" type="button" data-edit-admin-field="${escapeHtml(item._id)}">تعديل</button></article>`).join("") || empty()}
       </div>
     </section>
   `;
   document.querySelector("#setupFeatures")?.addEventListener("click", setupAdminFeatures);
   document.querySelector("#saveAdminField")?.addEventListener("click", saveAdminField);
+  document.querySelector("#cancelAdminEdit")?.addEventListener("click", () => {
+    adminEditingFieldId = null;
+    renderAdmin();
+  });
+  document.querySelectorAll("[data-edit-admin-field]").forEach((button) => {
+    button.addEventListener("click", () => {
+      adminEditingFieldId = button.dataset.editAdminField;
+      renderAdmin();
+      document.querySelector("#adminFieldForm")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  });
+  const typeSelect = document.querySelector('[data-field="نوع الحقل"]');
+  const updateOptionsVisibility = () => {
+    const optionsField = document.querySelector("#adminOptionsField");
+    if (optionsField) optionsField.hidden = typeSelect?.value !== "select";
+  };
+  typeSelect?.addEventListener("change", updateOptionsVisibility);
+  updateOptionsVisibility();
 }
 
 async function setupAdminFeatures() {
@@ -657,13 +691,21 @@ async function saveAdminField() {
     if (status) status.textContent = "اكتب اسم الحقل أولا.";
     return;
   }
-  if (status) status.textContent = "جاري إضافة الحقل...";
+  const selectChoices = String(values["الخيارات"] || "").split(/[\n,،]+/).map((option) => option.trim()).filter(Boolean);
+  if (values["نوع الحقل"] === "select" && selectChoices.length < 2) {
+    if (status) status.textContent = "أضف خيارين على الأقل للحقل من نوع select.";
+    return;
+  }
+  if (adminEditingFieldId) values._id = adminEditingFieldId;
+  const isEditing = Boolean(adminEditingFieldId);
+  if (status) status.textContent = isEditing ? "جاري حفظ التعديل..." : "جاري إضافة الحقل...";
   try {
-    await callScriptAction("addField", { payload: JSON.stringify(values) });
-    if (status) status.textContent = "تمت إضافة الحقل إلى الرئيسية وإعدادات الحقول.";
-    window.setTimeout(loadRemoteDatabase, 800);
+    await callScriptAction(isEditing ? "updateField" : "addField", { payload: JSON.stringify(values) });
+    if (status) status.textContent = isEditing ? "تم حفظ تعديل الحقل بدون تغيير أي سجل مشروع." : "تمت إضافة العمود والحقل بدون إنشاء سجل مشروع.";
+    adminEditingFieldId = null;
+    window.setTimeout(() => loadRemoteDatabase(), 800);
   } catch (error) {
-    if (status) status.textContent = `تعذر إضافة الحقل: ${error.message || error}`;
+    if (status) status.textContent = `تعذر حفظ الحقل: ${error.message || error}`;
   }
 }
 
