@@ -710,7 +710,8 @@ async function saveAdminField() {
 }
 
 function renderForm() {
-  const row = mainRows.find((item) => String(item._id) === String(state.selectedId)) || {};
+  const existingRow = mainRows.find((item) => String(item._id) === String(state.selectedId)) || {};
+  const row = existingRow._id ? existingRow : { ...existingRow, _id: createRecordId() };
   app.innerHTML = `
     <form class="form">
       ${field("اسم الشركة", value(row, "اسم الشركة", ""), "select", allCompanyNames())}
@@ -956,8 +957,13 @@ function collectProjectForm(originalRow = {}) {
   Object.entries(selectedFormFiles).forEach(([fieldName, file]) => {
     fields[fieldName] = file.data || file.previewUrl || `المعلومات العامة_Images/${file.name}`;
   });
-  if (!fields._id) fields._id = Date.now();
+  if (!fields._id) fields._id = createRecordId();
   return fields;
+}
+
+function createRecordId() {
+  if (window.crypto?.randomUUID) return window.crypto.randomUUID();
+  return `record-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
 async function saveProjectForm(originalRow = {}) {
@@ -1010,15 +1016,33 @@ async function saveProjectForm(originalRow = {}) {
       headers: { "Content-Type": "text/plain;charset=utf-8" },
       body: JSON.stringify(payload),
     });
-    if (status) status.textContent = "تم إرسال البيانات. انتظر قليلا حتى تظهر صور Drive...";
-    const savedKey = recordMatchKey(fields);
-    window.setTimeout(() => {
-      loadRemoteDatabase({ selectKey: savedKey });
-    }, 4500);
+    if (status) status.textContent = "تم إرسال البيانات، جاري التأكد من وجود السجل في الرئيسية...";
+    const confirmed = await confirmRemoteRecord(fields._id);
+    if (!confirmed) {
+      if (status) status.textContent = "لم يتم تأكيد السجل في الرئيسية. لا تعِد الإدخال الآن؛ اضغط حفظ مرة أخرى للمحاولة بنفس رقم السجل.";
+      if (button) button.disabled = false;
+      return;
+    }
+    if (status) status.textContent = "تم حفظ السجل وتأكيد وجوده في الرئيسية.";
+    window.setTimeout(() => loadRemoteDatabase({ selectKey: String(fields._id) }), 500);
   } catch (error) {
     if (status) status.textContent = "تعذر الاتصال بقاعدة البيانات. تم حفظ نسخة مؤقتة على الهاتف.";
     if (button) button.disabled = false;
   }
+}
+
+async function confirmRemoteRecord(id, attempts = 5) {
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    await new Promise((resolve) => window.setTimeout(resolve, attempt === 0 ? 1800 : 2500));
+    try {
+      const response = await callScriptAction("list");
+      const rows = response.data?.["الرئيسية"] || [];
+      if (rows.some((row) => String(row._id) === String(id))) return true;
+    } catch (error) {
+      // Retry because Apps Script deployments can briefly delay read-after-write.
+    }
+  }
+  return false;
 }
 
 function saveLocalRecord(row) {
@@ -1068,7 +1092,7 @@ function imageExtension(name, fallback) {
 
 function upsertVisibleRecord(row) {
   ensureRecordIdentity(row);
-  const index = mainRows.findIndex((item) => String(item._id) === String(row._id) || sameRecordKey(item, row));
+  const index = mainRows.findIndex((item) => String(item._id) === String(row._id));
   if (index >= 0) {
     mainRows[index] = { ...mainRows[index], ...row };
     ensureRecordIdentity(mainRows[index], index);
@@ -1118,8 +1142,8 @@ function replaceRows(targetRows, sourceRows = []) {
 
 function mergeDuplicateRecords(rows = []) {
   const byKey = new Map();
-  rows.forEach((row) => {
-    const key = recordMatchKey(row) || String(row._id || "");
+  rows.forEach((row, index) => {
+    const key = row._id ? `id:${String(row._id)}` : `legacy-row:${index}`;
     if (!key) return;
     const existing = byKey.get(key);
     if (!existing) {
@@ -1176,12 +1200,7 @@ function findOriginalRow(row) {
 }
 
 function recordMatchKey(row) {
-  return [
-    value(row, "اسم الشركة", ""),
-    value(row, "اسم المشروع", ""),
-    value(row, "الطابق", ""),
-    value(row, "اسم الشقة/رقمها", ""),
-  ].map(normalize).join("|");
+  return row?._id ? String(row._id) : "";
 }
 
 function isImageKey(key) {
@@ -1194,7 +1213,7 @@ function applyLocalChanges() {
   const remainingPendingRecords = [];
   JSON.parse(localStorage.getItem("expertsPendingRecords") || "[]").forEach((row) => {
     ensureRecordIdentity(row);
-    const existsRemotely = mainRows.some((item) => String(item._id) === String(row._id) || sameRecordKey(item, row));
+    const existsRemotely = mainRows.some((item) => String(item._id) === String(row._id));
     if (existsRemotely) return;
     remainingPendingRecords.push(row);
     mainRows.unshift(row);
