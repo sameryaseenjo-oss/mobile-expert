@@ -1500,3 +1500,4 @@ app.addEventListener("click", (event) => {
 });
 
 render();
+loadRemoteDatabase();
