@@ -506,18 +506,42 @@ function renderReport() {
       ${reportGallery(row)}
     </article>
   `;
-  document.querySelector("#printReport").addEventListener("click", () => printReport());
+  document.querySelector("#printReport").addEventListener("click", () => printReport(row));
   document.querySelector("#downloadReport").addEventListener("click", () => openStandaloneReport(row));
   document.querySelector("#shareReportWhatsapp").addEventListener("click", () => shareReportWhatsapp(row));
   document.querySelector("#backToProject").addEventListener("click", goBack);
 }
 
-function printReport() {
+function printReport(row) {
   const status = document.querySelector("#reportStatus");
   if (status) {
     status.textContent = "إذا لم تظهر نافذة الطباعة، استخدم زر تحميل التقرير وافتحه في Chrome ثم اختر Save as PDF.";
   }
+  const originalTitle = document.title;
+  document.title = reportFileName(row);
+  const restoreTitle = () => {
+    document.title = originalTitle;
+  };
+  window.addEventListener("afterprint", restoreTitle, { once: true });
   window.print();
+  window.setTimeout(restoreTitle, 60000);
+}
+
+function reportFileName(row) {
+  return [
+    "تقرير",
+    safeReportFilePart(value(row, "اسم المشروع", "بدون-مشروع")),
+    safeReportFilePart(value(row, "الطابق", "بدون-طابق")),
+    safeReportFilePart(value(row, "اسم الشقة/رقمها", "بدون-شقة")),
+  ].join("_");
+}
+
+function safeReportFilePart(text) {
+  return String(text || "")
+    .trim()
+    .replace(/[\\/:*?"<>|]/g, "-")
+    .replace(/\s+/g, " ")
+    .slice(0, 60) || "بدون-اسم";
 }
 
 function openStandaloneReport(row) {
