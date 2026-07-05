@@ -192,7 +192,7 @@ function syncBanner() {
     <div class="sync-banner">
       <span>${escapeHtml(state.syncStatus)}</span>
       ${DATABASE_ENDPOINT ? `
-        <button class="secondary small-action" type="button" id="backupImagesBtn">نسخ الصور إلى Drive</button>
+        <button class="secondary small-action" type="button" id="backupImagesBtn">إصلاح وربط الصور القديمة</button>
       ` : ""}
     </div>
   `;
@@ -1376,14 +1376,14 @@ function backupImagesToDrive() {
   const button = document.querySelector("#backupImagesBtn");
   const imageMap = window.DRIVE_IMAGE_IDS || {};
   const entries = Object.entries(imageMap).map(([name, id]) => ({ name, id }));
-  const confirmed = confirm(`سيتم نسخ ${entries.length} صورة إلى مجلد Drive بدون تكرار الصور الموجودة. هل تريد المتابعة؟`);
+  const confirmed = confirm(`سيتم إصلاح صلاحيات الصور القديمة وربط كل صورة بسجلها الصحيح في الرئيسية. لن يتم تغيير بيانات المشاريع. هل تريد المتابعة؟`);
   if (!confirmed) return;
 
   if (button) {
     button.disabled = true;
-    button.textContent = "جاري النسخ...";
+    button.textContent = "جاري الإصلاح...";
   }
-  state.syncStatus = `جاري نسخ ${entries.length} صورة إلى Drive...`;
+  state.syncStatus = `جاري فحص ${entries.length} صورة في Drive...`;
   render();
 
   backupImageChunks(entries);
@@ -1391,7 +1391,7 @@ function backupImagesToDrive() {
 
 async function backupImageChunks(entries) {
   const chunkSize = 8;
-  const totals = { copied: 0, skipped: 0, missing: 0 };
+  const totals = { copied: 0, skipped: 0, missing: 0, shared: 0, permissionErrors: 0, linked: 0 };
 
   try {
     const diagnostics = await callScriptAction("diagnostics");
@@ -1413,21 +1413,35 @@ async function backupImageChunks(entries) {
       totals.copied += result.copied || 0;
       totals.skipped += result.skipped || 0;
       totals.missing += result.missing || 0;
-      state.syncStatus = `نسخ الصور: ${Math.min(index + chunk.length, entries.length)} / ${entries.length}`;
+      totals.shared += result.shared || 0;
+      totals.permissionErrors += result.permissionErrors || 0;
+      state.syncStatus = `إصلاح صلاحيات الصور: ${Math.min(index + chunk.length, entries.length)} / ${entries.length}`;
       render();
     } catch (error) {
-      state.syncStatus = `فشل النسخ عند الصورة ${index + 1}: ${error.message || "تأكد من نشر Apps Script"}`;
+      state.syncStatus = `فشل الإصلاح عند الصورة ${index + 1}: ${error.message || "تأكد من نشر Apps Script"}`;
       render();
       return;
     }
   }
 
+  let offset = 0;
   try {
-    const linkResponse = await callScriptAction("linkImagesFromFolder");
-    const linked = linkResponse.result?.linked || 0;
-    state.syncStatus = `انتهى النسخ: ${totals.copied} جديد، ${totals.skipped} موجود، ${totals.missing} لم يتم الوصول له، تم ربط ${linked} خلية`;
+    while (true) {
+      const response = await callScriptAction("repairImageLinksChunk", { payload: JSON.stringify({ offset, batchSize: 8 }) });
+      const result = response.result || {};
+      totals.linked += result.linked || 0;
+      totals.shared += result.shared || 0;
+      totals.missing += result.missing || 0;
+      totals.permissionErrors += result.permissionErrors || 0;
+      offset = result.nextOffset || offset;
+      state.syncStatus = `ربط الصور بالسجلات: ${Math.min(offset, result.totalRows || offset)} / ${result.totalRows || offset}`;
+      render();
+      if (result.done) break;
+    }
+    state.syncStatus = `اكتمل الإصلاح: تم ربط ${totals.linked} خلية، إصلاح ${totals.shared} صلاحية، ${totals.missing} ملف مفقود، ${totals.permissionErrors} خطأ صلاحية`;
+    window.setTimeout(() => loadRemoteDatabase(), 800);
   } catch (error) {
-    state.syncStatus = `انتهى النسخ: ${totals.copied} جديد، ${totals.skipped} موجود، ${totals.missing} لم يتم الوصول له. تعذر ربط الخلايا.`;
+    state.syncStatus = `توقف ربط الصور عند السجل ${offset + 1}: ${error.message || "تأكد من نشر Apps Script"}. يمكن الضغط على الإصلاح مرة أخرى بأمان.`;
   }
   render();
 }
