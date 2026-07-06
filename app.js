@@ -146,6 +146,14 @@ function goBack() {
 }
 
 function setHeader() {
+  if (state.view === "accountReport") {
+    title.textContent = "تقرير شامل PDF";
+    subtitle.textContent = state.selectedProjectName || "كل سجلات الحساب";
+    backBtn.style.visibility = "visible";
+    addBtn.style.display = "none";
+    navButtons.forEach((button) => button.classList.toggle("active", button.dataset.view === "projects"));
+    return;
+  }
   const key = state.view === "detail" || state.view === "form" ? state.view : state.view;
   title.textContent = labels[key]?.[0] || labels.home[0];
   subtitle.textContent = state.view === "projectRecords" && state.selectedProjectName ? state.selectedProjectName : labels[key]?.[1] || labels.home[1];
@@ -293,6 +301,7 @@ function renderProjectRecords() {
     <section class="project-record-heading">
       <strong>${escapeHtml(selectedName || "مشروع")}</strong>
       <span>${rows.length} سجل</span>
+      <button class="primary wide-action" type="button" id="accountPdfReport">تقرير شامل PDF</button>
     </section>
     <section class="list">
       ${rows.map((row) => {
@@ -317,6 +326,7 @@ function renderProjectRecords() {
     </section>
   `;
   bindSearch();
+  document.querySelector("#accountPdfReport")?.addEventListener("click", () => navigate("accountReport", null, true, selectedName));
   app.querySelectorAll(".record-card").forEach((card) => {
     card.addEventListener("click", () => navigate("detail", card.dataset.id));
     card.addEventListener("keydown", (event) => {
@@ -510,6 +520,113 @@ function renderReport() {
   document.querySelector("#downloadReport").addEventListener("click", () => openStandaloneReport(row));
   document.querySelector("#shareReportWhatsapp").addEventListener("click", () => shareReportWhatsapp(row));
   document.querySelector("#backToProject").addEventListener("click", goBack);
+}
+
+function accountRowsForReport(accountName) {
+  const group = projectGroups().find(([name]) => String(name || "").trim() === String(accountName || "").trim());
+  return group ? group[1] : [];
+}
+
+function renderAccountReport() {
+  const accountName = state.selectedProjectName || "";
+  const rows = accountRowsForReport(accountName);
+  app.innerHTML = `
+    <section class="report-toolbar no-print">
+      <button class="primary" id="printAccountReport">حفظ / طباعة PDF</button>
+      <button class="secondary" id="shareAccountReportWhatsapp">إرسال عبر واتساب</button>
+      <button class="secondary" id="backToAccountRecords">رجوع للسجلات</button>
+      <p class="report-status" id="reportStatus"></p>
+    </section>
+    <article class="report-page account-report-page">
+      <header class="report-header account-report-header">
+        <img src="experts-logo.png?v=20260614-logo-root" alt="EXPERTS" class="report-logo">
+        <div>
+          <h2>تقرير شامل</h2>
+          <p>${escapeHtml(accountName)} | ${rows.length} سجل</p>
+        </div>
+      </header>
+      <section class="report-summary account-report-summary">
+        <div><span>اسم الحساب</span><strong>${escapeHtml(accountName || "-")}</strong></div>
+        <div><span>عدد السجلات</span><strong>${rows.length}</strong></div>
+        <div><span>تاريخ التقرير</span><strong>${escapeHtml(new Date().toLocaleDateString("ar-JO"))}</strong></div>
+      </section>
+      <section class="account-report-records">
+        ${rows.map((row, index) => accountReportRecord(row, index)).join("") || empty()}
+      </section>
+    </article>
+  `;
+  document.querySelector("#printAccountReport")?.addEventListener("click", () => printAccountReport(accountName));
+  document.querySelector("#shareAccountReportWhatsapp")?.addEventListener("click", () => shareAccountReportWhatsapp(accountName, rows));
+  document.querySelector("#backToAccountRecords")?.addEventListener("click", goBack);
+}
+
+function accountReportRecord(row, index) {
+  const details = reportRows(row);
+  const projectName = details[1]?.[1] || "";
+  const floor = details[3]?.[1] || "";
+  const apartment = details[4]?.[1] || "";
+  const pressure = details[15]?.[1] || "";
+  const titleText = [
+    projectName,
+    floor,
+    apartment,
+  ].filter(Boolean).join(" | ");
+  return `
+    <section class="account-report-record">
+      <h3>${index + 1}. ${escapeHtml(titleText || "سجل")}</h3>
+      <section class="report-summary compact-summary">
+        <div><span>الطابق</span><strong>${escapeHtml(floor || "-")}</strong></div>
+        <div><span>الشقة</span><strong>${escapeHtml(apartment || "-")}</strong></div>
+        <div><span>الضغط</span><strong>${escapeHtml(pressure || "-")}</strong></div>
+      </section>
+      <section class="report-images compact-images">
+        ${reportImageFields(row).map((key) => reportImage(row, key)).join("")}
+      </section>
+      <table class="report-table compact-table">
+        <tbody>
+          ${reportRows(row).map(([label, text]) => `<tr><th>${escapeHtml(label)}</th><td>${escapeHtml(text)}</td></tr>`).join("")}
+        </tbody>
+      </table>
+    </section>
+  `;
+}
+
+function printAccountReport(accountName) {
+  const status = document.querySelector("#reportStatus");
+  if (status) status.textContent = "سيتم فتح نافذة الطباعة. اختر Save as PDF.";
+  const originalTitle = document.title;
+  document.title = accountReportFileName(accountName);
+  const restoreTitle = () => {
+    document.title = originalTitle;
+  };
+  window.addEventListener("afterprint", restoreTitle, { once: true });
+  window.print();
+  window.setTimeout(restoreTitle, 60000);
+}
+
+function accountReportFileName(accountName) {
+  return ["تقرير", safeReportFilePart(accountName || "حساب")].join("_");
+}
+
+async function shareAccountReportWhatsapp(accountName, rows) {
+  const status = document.querySelector("#reportStatus");
+  const message = [
+    "تقرير شامل",
+    `الحساب: ${accountName}`,
+    `عدد السجلات: ${rows.length}`,
+    "لحفظ التقرير كملف PDF استخدم زر حفظ / طباعة PDF ثم شارك الملف.",
+  ].join("\n");
+  if (navigator.share) {
+    try {
+      await navigator.share({ title: accountReportFileName(accountName), text: message });
+      if (status) status.textContent = "تم فتح خيارات المشاركة. اختر واتساب.";
+      return;
+    } catch (error) {
+      if (error?.name === "AbortError") return;
+    }
+  }
+  if (status) status.textContent = "سيتم فتح واتساب برسالة نصية. لإرسال PDF فعلي احفظ التقرير ثم شاركه من الهاتف.";
+  window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, "_blank");
 }
 
 function printReport(row) {
@@ -1679,6 +1796,9 @@ function render() {
         break;
       case "report":
         renderReport();
+        break;
+      case "accountReport":
+        renderAccountReport();
         break;
       case "admin":
         renderAdmin();
