@@ -5,6 +5,7 @@ const APPSHEET_APP_VERSION = "1.000163";
 const DATABASE_ENDPOINT = window.EXPERTS_DATABASE_ENDPOINT || localStorage.getItem("expertsDatabaseEndpoint") || "";
 let selectedFormFiles = {};
 let selectedGalleryFiles = [];
+let selectedFoundationGalleryFiles = [];
 let adminEditingFieldId = null;
 let copiedProjectSeed = null;
 const SIGNED_IMAGE_URLS = {
@@ -146,6 +147,14 @@ function goBack() {
 }
 
 function setHeader() {
+  if (state.view === "foundationReport") {
+    title.textContent = "استلام الاعمال التاسيسية";
+    subtitle.textContent = "الحقول الاضافية والصور";
+    backBtn.style.visibility = "visible";
+    addBtn.style.display = "none";
+    navButtons.forEach((button) => button.classList.toggle("active", false));
+    return;
+  }
   if (state.view === "accountReport") {
     title.textContent = "تقرير شامل PDF";
     subtitle.textContent = state.selectedProjectName || "كل سجلات الحساب";
@@ -403,6 +412,8 @@ function renderDetail() {
   });
   document.querySelector("#pdfReport").addEventListener("click", () => navigate("report", row._id));
   const actions = document.querySelector(".actions");
+  actions?.insertAdjacentHTML("beforeend", `<button class="secondary wide-action" type="button" id="foundationReport">استلام الاعمال التاسيسية</button>`);
+  document.querySelector("#foundationReport")?.addEventListener("click", () => navigate("foundationReport", row._id));
   actions?.insertAdjacentHTML("beforeend", `<button class="danger wide-action" type="button" id="deleteRecord">حذف السجل</button>`);
   document.querySelector("#deleteRecord")?.addEventListener("click", () => deleteProject(row._id));
 }
@@ -520,6 +531,104 @@ function renderReport() {
   document.querySelector("#downloadReport").addEventListener("click", () => openStandaloneReport(row));
   document.querySelector("#shareReportWhatsapp").addEventListener("click", () => shareReportWhatsapp(row));
   document.querySelector("#backToProject").addEventListener("click", goBack);
+}
+
+function foundationRows(row) {
+  return activeFieldSettings().map((item) => {
+    const key = settingFieldKey(item);
+    const label = String(value(item, "ط§ط³ظ… ط§ظ„ط¹ط±ط¶", value(item, "ط§ط³ظ… ط§ظ„ط­ظ‚ظ„", key)));
+    return [label, value(row, key, "")];
+  });
+}
+
+function renderFoundationReport() {
+  const row = mainRows.find((item) => String(item._id) === String(state.selectedId)) || mainRows[0];
+  const rows = foundationRows(row);
+  const gallery = foundationGalleryForProject(row);
+  app.innerHTML = `
+    <section class="report-toolbar no-print">
+      <button class="primary" id="printFoundationReport">حفظ / طباعة PDF</button>
+      <button class="secondary" id="shareFoundationReportWhatsapp">إرسال عبر واتساب</button>
+      <button class="secondary" id="backToProject">رجوع للمشروع</button>
+      <p class="report-status" id="reportStatus"></p>
+    </section>
+    <article class="report-page foundation-report-page">
+      <header class="report-header">
+        <img src="experts-logo.png?v=20260614-logo-root" alt="EXPERTS" class="report-logo">
+        <div>
+          <h2>استلام الاعمال التاسيسية</h2>
+          <p>${escapeHtml(value(row, "ط§ط³ظ… ط§ظ„ط´ط±ظƒط©"))} | ${escapeHtml(value(row, "ط§ط³ظ… ط§ظ„ظ…ط´ط±ظˆط¹"))}</p>
+        </div>
+      </header>
+      <section class="report-summary">
+        <div><span>المشروع</span><strong>${escapeHtml(value(row, "ط§ط³ظ… ط§ظ„ظ…ط´ط±ظˆط¹"))}</strong></div>
+        <div><span>الطابق</span><strong>${escapeHtml(value(row, "ط§ظ„ط·ط§ط¨ظ‚ "))}</strong></div>
+        <div><span>الشقة</span><strong>${escapeHtml(value(row, "ط§ط³ظ… ط§ظ„ط´ظ‚ط©/ط±ظ‚ظ…ظ‡ط§"))}</strong></div>
+      </section>
+      <table class="report-table foundation-table">
+        <tbody>
+          ${rows.map(([label, text]) => `<tr><th>${escapeHtml(label)}</th><td>${escapeHtml(text)}</td></tr>`).join("") || `<tr><td colspan="2">لا توجد حقول اضافية</td></tr>`}
+        </tbody>
+      </table>
+      <section class="report-gallery foundation-report-gallery">
+        <h3>صور الاعمال التاسيسية</h3>
+        <div class="report-gallery-grid">
+          ${gallery.map((item) => {
+            const url = appSheetImageUrl(value(item, "image_url", ""));
+            const caption = value(item, "caption", "");
+            return `<figure>${url ? `<img src="${escapeHtml(url)}" alt="صورة الاعمال التاسيسية">` : ""}${caption ? `<figcaption>${escapeHtml(caption)}</figcaption>` : ""}</figure>`;
+          }).join("") || `<figure class="gallery-empty"><figcaption>لا توجد صور للاعمال التاسيسية</figcaption></figure>`}
+        </div>
+      </section>
+    </article>
+  `;
+  document.querySelector("#printFoundationReport")?.addEventListener("click", () => printFoundationReport(row));
+  document.querySelector("#shareFoundationReportWhatsapp")?.addEventListener("click", () => shareFoundationReportWhatsapp(row));
+  document.querySelector("#backToProject")?.addEventListener("click", goBack);
+}
+
+function printFoundationReport(row) {
+  const status = document.querySelector("#reportStatus");
+  if (status) status.textContent = "سيتم فتح نافذة الطباعة. اختر Save as PDF.";
+  const originalTitle = document.title;
+  document.title = foundationReportFileName(row);
+  const restoreTitle = () => {
+    document.title = originalTitle;
+  };
+  window.addEventListener("afterprint", restoreTitle, { once: true });
+  window.print();
+  window.setTimeout(restoreTitle, 60000);
+}
+
+function foundationReportFileName(row) {
+  return [
+    "استلام الاعمال التاسيسية",
+    safeReportFilePart(value(row, "ط§ط³ظ… ط§ظ„ظ…ط´ط±ظˆط¹", "مشروع")),
+    safeReportFilePart(value(row, "ط§ظ„ط·ط§ط¨ظ‚", "طابق")),
+    safeReportFilePart(value(row, "ط§ط³ظ… ط§ظ„ط´ظ‚ط©/ط±ظ‚ظ…ظ‡ط§", "شقة")),
+  ].join("_");
+}
+
+async function shareFoundationReportWhatsapp(row) {
+  const status = document.querySelector("#reportStatus");
+  const message = [
+    "استلام الاعمال التاسيسية",
+    `المشروع: ${value(row, "ط§ط³ظ… ط§ظ„ظ…ط´ط±ظˆط¹")}`,
+    `الطابق: ${value(row, "ط§ظ„ط·ط§ط¨ظ‚ ")}`,
+    `الشقة: ${value(row, "ط§ط³ظ… ط§ظ„ط´ظ‚ط©/ط±ظ‚ظ…ظ‡ط§")}`,
+    "لحفظ التقرير كملف PDF استخدم زر حفظ / طباعة PDF ثم شارك الملف.",
+  ].join("\n");
+  if (navigator.share) {
+    try {
+      await navigator.share({ title: foundationReportFileName(row), text: message });
+      if (status) status.textContent = "تم فتح خيارات المشاركة. اختر واتساب.";
+      return;
+    } catch (error) {
+      if (error?.name === "AbortError") return;
+    }
+  }
+  if (status) status.textContent = "سيتم فتح واتساب برسالة نصية. لإرسال PDF فعلي احفظ التقرير ثم شاركه من الهاتف.";
+  window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, "_blank");
 }
 
 function accountRowsForReport(accountName) {
@@ -737,6 +846,14 @@ function reportSignature(row) {
 function galleryForProject(row) {
   return projectImages
     .filter((item) => String(value(item, "project_id", "")) === String(row?._id || ""))
+    .filter((item) => String(value(item, "stage", "final")) !== "foundation")
+    .sort((a, b) => Number(value(a, "sort_order", 0)) - Number(value(b, "sort_order", 0)));
+}
+
+function foundationGalleryForProject(row) {
+  return projectImages
+    .filter((item) => String(value(item, "project_id", "")) === String(row?._id || ""))
+    .filter((item) => String(value(item, "stage", "")) === "foundation")
     .sort((a, b) => Number(value(a, "sort_order", 0)) - Number(value(b, "sort_order", 0)));
 }
 
@@ -939,6 +1056,7 @@ function renderForm() {
       ${imageField("صورة عن الخزانة", "cabinetImage")}
       ${imageField("صورة عن الضغط", "pressureImage")}
       ${imageField("صورة ملاحظات", "notesImage")}
+      ${foundationGalleryField()}
       ${galleryField()}
       <div class="field">
         <label>توقيع المهندس المقيم</label>
@@ -959,6 +1077,7 @@ function renderForm() {
     </form>
   `;
   setupImageInputs();
+  setupFoundationGalleryInputs();
   setupGalleryInputs();
   setupSignaturePad();
   document.querySelector("#saveForm").addEventListener("click", () => saveProjectForm(row));
@@ -1040,6 +1159,30 @@ function setupGalleryInputs() {
       selectedGalleryFiles.push(entry);
     });
     preview.innerHTML = selectedGalleryFiles.map((file, index) => `<span class="gallery-file-chip">${index + 1}. ${escapeHtml(file.name)}</span>`).join("");
+  }
+
+  galleryInput.addEventListener("change", (event) => addFiles(event.target.files));
+  cameraInput.addEventListener("change", (event) => addFiles(event.target.files));
+}
+
+function setupFoundationGalleryInputs() {
+  selectedFoundationGalleryFiles = [];
+  const galleryInput = document.querySelector("#foundationGalleryInput");
+  const cameraInput = document.querySelector("#foundationGalleryCamera");
+  const preview = document.querySelector("#foundationGalleryPickerPreview");
+  if (!galleryInput || !cameraInput || !preview) return;
+
+  function addFiles(fileList) {
+    const remaining = Math.max(0, 12 - selectedFoundationGalleryFiles.length);
+    [...(fileList || [])].slice(0, remaining).forEach((file) => {
+      const entry = { name: file.name || `${Date.now()}.jpg`, type: "image/jpeg", data: "" };
+      entry.ready = imageFileToDataUrl(file).then((dataUrl) => {
+        entry.data = dataUrl;
+        return entry;
+      });
+      selectedFoundationGalleryFiles.push(entry);
+    });
+    preview.innerHTML = selectedFoundationGalleryFiles.map((file, index) => `<span class="gallery-file-chip">${index + 1}. ${escapeHtml(file.name)}</span>`).join("");
   }
 
   galleryInput.addEventListener("change", (event) => addFiles(event.target.files));
@@ -1150,6 +1293,7 @@ function imageFileToDataUrl(file) {
 async function waitForSelectedFiles() {
   await Promise.all([
     ...Object.values(selectedFormFiles).map((file) => file.ready).filter(Boolean),
+    ...selectedFoundationGalleryFiles.map((file) => file.ready).filter(Boolean),
     ...selectedGalleryFiles.map((file) => file.ready).filter(Boolean),
   ]);
 }
@@ -1194,18 +1338,27 @@ async function saveProjectForm(originalRow = {}) {
       data: file.data || "",
     };
   });
+  const galleryFiles = selectedGalleryFiles.map((file, index) => ({
+    name: galleryImageFileName(fields, file.name, index),
+    type: file.type || "image/jpeg",
+    data: file.data || "",
+    caption: "",
+    sortOrder: index + 1,
+    stage: "final",
+  })).concat(selectedFoundationGalleryFiles.map((file, index) => ({
+    name: galleryImageFileName(fields, file.name, index),
+    type: file.type || "image/jpeg",
+    data: file.data || "",
+    caption: "",
+    sortOrder: index + 1,
+    stage: "foundation",
+  })));
   const payload = {
     table: "الرئيسية",
     id: originalRow._id || fields._id,
     fields: remoteFields,
     files: remoteFiles,
-    galleryFiles: selectedGalleryFiles.map((file, index) => ({
-      name: galleryImageFileName(fields, file.name, index),
-      type: file.type || "image/jpeg",
-      data: file.data || "",
-      caption: "",
-      sortOrder: index + 1,
-    })),
+    galleryFiles,
   };
 
   if (status) status.textContent = "جاري الحفظ...";
@@ -1797,6 +1950,9 @@ function render() {
       case "report":
         renderReport();
         break;
+      case "foundationReport":
+        renderFoundationReport();
+        break;
       case "accountReport":
         renderAccountReport();
         break;
@@ -1896,6 +2052,21 @@ function galleryField() {
       </div>
       <input id="projectGalleryInput" class="visually-hidden-file" type="file" accept="image/*" multiple>
       <input id="projectGalleryCamera" class="visually-hidden-file" type="file" accept="image/*" capture="environment">
+    </div>
+  `;
+}
+
+function foundationGalleryField() {
+  return `
+    <div class="field project-gallery-field foundation-gallery-field">
+      <label>صور استلام الاعمال التاسيسية</label>
+      <div class="gallery-picker-preview" id="foundationGalleryPickerPreview"><span>لم يتم اختيار صور الاعمال التاسيسية</span></div>
+      <div class="image-actions">
+        <label class="secondary image-button" for="foundationGalleryInput">اختيار عدة صور</label>
+        <label class="primary image-button" for="foundationGalleryCamera">التقاط صورة</label>
+      </div>
+      <input id="foundationGalleryInput" class="visually-hidden-file" type="file" accept="image/*" multiple>
+      <input id="foundationGalleryCamera" class="visually-hidden-file" type="file" accept="image/*" capture="environment">
     </div>
   `;
 }

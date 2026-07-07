@@ -1945,8 +1945,40 @@ main,
   }
 
   .compact-table th,
-  .compact-table td {
-    padding: 5pt 7pt;
-    font-size: 10.5pt;
-  }
+.compact-table td {
+  padding: 5pt 7pt;
+  font-size: 10.5pt;
+}
+}
+
+.foundation-gallery-field,
+.foundation-report-page {
+  border-color: rgba(71, 85, 105, 0.16);
+}
+
+.foundation-gallery-field {
+  padding: 12px;
+  border: 1px solid rgba(71, 85, 105, 0.16);
+  border-radius: 12px;
+  background: #f8fafc;
+}
+
+.foundation-report-page {
+  display: grid;
+  gap: 14px;
+}
+
+.foundation-table {
+  margin-top: 0;
+}
+
+.foundation-report-gallery {
+  margin-top: 4px;
+}
+
+.foundation-report-gallery .gallery-empty {
+  display: grid;
+  place-items: center;
+  min-height: 110px;
+  background: #f8fafc;
 }
