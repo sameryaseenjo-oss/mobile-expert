@@ -1982,3 +1982,61 @@ main,
   min-height: 110px;
   background: #f8fafc;
 }
+
+.editable-gallery {
+  margin-top: 14px;
+}
+
+.editable-gallery h3 {
+  margin: 0 0 10px;
+  font-size: 18px;
+  font-weight: 800;
+  text-align: center;
+}
+
+.editable-gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.editable-gallery-item {
+  position: relative;
+  overflow: hidden;
+  min-height: 132px;
+  margin: 0;
+  border: 1px solid rgba(71, 85, 105, 0.22);
+  border-radius: 12px;
+  background: #f8fafc;
+}
+
+.editable-gallery-item img {
+  display: block;
+  width: 100%;
+  height: 132px;
+  object-fit: cover;
+}
+
+.editable-gallery-item figcaption {
+  padding: 7px;
+  font-size: 12px;
+  color: #475569;
+  text-align: center;
+}
+
+.gallery-delete-btn {
+  position: absolute;
+  top: 7px;
+  inset-inline-end: 7px;
+  z-index: 2;
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(185, 28, 28, 0.92);
+  color: #fff;
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.18);
+}
