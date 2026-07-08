@@ -70,6 +70,7 @@ let state = {
   history: [],
   syncStatus: DATABASE_ENDPOINT ? "متصل بقاعدة البيانات - الحفظ مفعل" : "غير متصل بقاعدة البيانات",
 };
+let pendingSyncRunning = false;
 
 const labels = {
   home: ["الرئيسية", "متابعة المشاريع والملاحظات"],
@@ -205,10 +206,13 @@ function stats() {
 }
 
 function syncBanner() {
+  const pending = pendingLocalCount();
   return `
     <div class="sync-banner">
       <span>${escapeHtml(state.syncStatus)}</span>
+      ${pending ? `<strong class="pending-sync-count">محفوظ محليا: ${pending}</strong>` : ""}
       ${DATABASE_ENDPOINT ? `
+        ${pending ? `<button class="primary small-action" type="button" id="syncPendingBtn">مزامنة المحفوظ محليا</button>` : ""}
         <button class="secondary small-action" type="button" id="backupImagesBtn">إصلاح وربط الصور القديمة</button>
       ` : ""}
     </div>
@@ -391,6 +395,8 @@ function renderDetail() {
       <div class="photo-grid">
         ${imageFields(row).map((key) => photoCard(row, key)).join("") || empty()}
       </div>
+      ${editableGallerySection(row, "final")}
+      ${editableGallerySection(row, "foundation")}
       <div class="info-grid">
         ${info("ملاحظات", value(row, "ملاحظات"))}
         ${info("الإجراء المتخذ", value(row, "الاجراء المتخذ"))}
@@ -416,6 +422,12 @@ function renderDetail() {
   document.querySelector("#foundationReport")?.addEventListener("click", () => navigate("foundationReport", row._id));
   actions?.insertAdjacentHTML("beforeend", `<button class="danger wide-action" type="button" id="deleteRecord">حذف السجل</button>`);
   document.querySelector("#deleteRecord")?.addEventListener("click", () => deleteProject(row._id));
+  document.querySelectorAll("[data-delete-project-image]").forEach((button) => {
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
+      deleteProjectImage(button.dataset.deleteProjectImage, row._id);
+    });
+  });
 }
 
 function detailHero(row) {
@@ -855,6 +867,31 @@ function foundationGalleryForProject(row) {
     .filter((item) => String(value(item, "project_id", "")) === String(row?._id || ""))
     .filter((item) => String(value(item, "stage", "")) === "foundation")
     .sort((a, b) => Number(value(a, "sort_order", 0)) - Number(value(b, "sort_order", 0)));
+}
+
+function editableGallerySection(row, stage) {
+  const images = stage === "foundation" ? foundationGalleryForProject(row) : galleryForProject(row);
+  if (!images.length) return "";
+  const titleText = stage === "foundation" ? "صور استلام الاعمال التاسيسية" : "معرض صور المشروع";
+  return `
+    <section class="editable-gallery">
+      <h3>${escapeHtml(titleText)}</h3>
+      <div class="editable-gallery-grid">
+        ${images.map((item) => {
+          const url = appSheetImageUrl(value(item, "image_url", ""));
+          const imageId = value(item, "_id", "");
+          const caption = value(item, "caption", "");
+          return `
+            <figure class="editable-gallery-item">
+              <button class="gallery-delete-btn" type="button" data-delete-project-image="${escapeHtml(imageId)}" aria-label="حذف الصورة">×</button>
+              ${url ? `<img src="${escapeHtml(url)}" alt="${escapeHtml(caption || titleText)}" onerror="this.hidden=true;">` : ""}
+              ${caption ? `<figcaption>${escapeHtml(caption)}</figcaption>` : ""}
+            </figure>
+          `;
+        }).join("")}
+      </div>
+    </section>
+  `;
 }
 
 function reportGallery(row) {
@@ -1351,6 +1388,7 @@ async function saveProjectForm(originalRow = {}) {
   if (status) status.textContent = "جاري الحفظ...";
 
   saveLocalRecord(remoteFields);
+  savePendingPayload("expertsPendingRecordPayloads", payload);
   upsertVisibleRecord(fields);
 
   if (!DATABASE_ENDPOINT) {
@@ -1374,6 +1412,8 @@ async function saveProjectForm(originalRow = {}) {
       return;
     }
     if (status) status.textContent = "تم حفظ السجل وتأكيد وجوده في الرئيسية.";
+    removeLocalSaved("expertsPendingRecords", fields._id);
+    removePendingPayload("expertsPendingRecordPayloads", fields._id);
     window.setTimeout(() => loadRemoteDatabase({ selectKey: String(fields._id) }), 500);
   } catch (error) {
     if (status) status.textContent = "تعذر الاتصال بقاعدة البيانات. تم حفظ نسخة مؤقتة على الهاتف.";
@@ -1403,6 +1443,18 @@ function saveLocalRecord(row) {
     localStorage.setItem("expertsPendingRecords", JSON.stringify(next));
   } catch (error) {
     // Very large mobile photos can exceed browser storage; keep the in-memory record visible.
+  }
+}
+
+function savePendingPayload(storageKey, payload) {
+  try {
+    const saved = JSON.parse(localStorage.getItem(storageKey) || "[]");
+    const id = String(payload.id || payload.fields?._id || "");
+    const next = saved.filter((item) => String(item.id || item.fields?._id || "") !== id);
+    next.push(payload);
+    localStorage.setItem(storageKey, JSON.stringify(next));
+  } catch (error) {
+    state.syncStatus = "تم حفظ البيانات محليا، لكن الصور كبيرة جدا وقد تحتاج إعادة الحفظ عند توفر الانترنت.";
   }
 }
 
@@ -1617,6 +1669,7 @@ function loadRemoteDatabase(options = {}) {
           }
         }
         render();
+        if (pendingLocalCount()) window.setTimeout(syncPendingLocalSaves, 1200);
       } else {
         state.syncStatus = "لم يتم تحميل قاعدة البيانات. تحقق من نشر Apps Script";
         render();
@@ -1640,6 +1693,8 @@ function loadRemoteDatabase(options = {}) {
 function bindBackupButton() {
   const button = document.querySelector("#backupImagesBtn");
   if (button) button.addEventListener("click", backupImagesToDrive);
+  const syncButton = document.querySelector("#syncPendingBtn");
+  if (syncButton) syncButton.addEventListener("click", syncPendingLocalSaves);
 }
 
 function backupImagesToDrive() {
@@ -1766,6 +1821,82 @@ function removeLocalSaved(storageKey, id) {
   localStorage.setItem(storageKey, JSON.stringify(saved.filter((row) => String(row._id) !== String(id))));
 }
 
+function removePendingPayload(storageKey, id) {
+  const saved = JSON.parse(localStorage.getItem(storageKey) || "[]");
+  localStorage.setItem(storageKey, JSON.stringify(saved.filter((item) => String(item.id || item.fields?._id || "") !== String(id))));
+}
+
+function pendingLocalCount() {
+  return ["expertsPendingRecords", "expertsPendingAccounts", "expertsPendingRecordPayloads", "expertsPendingAccountPayloads"]
+    .reduce((total, key) => {
+      try {
+        return total + JSON.parse(localStorage.getItem(key) || "[]").length;
+      } catch (error) {
+        return total;
+      }
+    }, 0);
+}
+
+function pendingPayloadsForSync() {
+  const recordPayloads = JSON.parse(localStorage.getItem("expertsPendingRecordPayloads") || "[]");
+  const accountPayloads = JSON.parse(localStorage.getItem("expertsPendingAccountPayloads") || "[]");
+  const existingRecordIds = new Set(recordPayloads.map((item) => String(item.id || item.fields?._id || "")));
+  const existingAccountIds = new Set(accountPayloads.map((item) => String(item.id || item.fields?._id || "")));
+  JSON.parse(localStorage.getItem("expertsPendingRecords") || "[]").forEach((row) => {
+    if (!existingRecordIds.has(String(row._id))) {
+      recordPayloads.push({ table: "الرئيسية", id: row._id, fields: row, files: {}, galleryFiles: [] });
+    }
+  });
+  JSON.parse(localStorage.getItem("expertsPendingAccounts") || "[]").forEach((row) => {
+    if (!existingAccountIds.has(String(row._id))) {
+      accountPayloads.push({ table: "اسماء الحسابات", id: row._id, fields: row, files: {} });
+    }
+  });
+  return { recordPayloads, accountPayloads };
+}
+
+async function syncPendingLocalSaves() {
+  if (!DATABASE_ENDPOINT || pendingSyncRunning || !pendingLocalCount()) return;
+  pendingSyncRunning = true;
+  state.syncStatus = "جاري رفع السجلات المحفوظة محليا...";
+  render();
+  try {
+    const { recordPayloads, accountPayloads } = pendingPayloadsForSync();
+    for (const payload of recordPayloads) {
+      await fetch(DATABASE_ENDPOINT, {
+        method: "POST",
+        mode: "no-cors",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify(payload),
+      });
+      const id = payload.id || payload.fields?._id;
+      const confirmed = await confirmRemoteRecord(id, 3);
+      if (confirmed) {
+        removeLocalSaved("expertsPendingRecords", id);
+        removePendingPayload("expertsPendingRecordPayloads", id);
+      }
+    }
+    for (const payload of accountPayloads) {
+      await fetch(DATABASE_ENDPOINT, {
+        method: "POST",
+        mode: "no-cors",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify(payload),
+      });
+      const id = payload.id || payload.fields?._id;
+      removeLocalSaved("expertsPendingAccounts", id);
+      removePendingPayload("expertsPendingAccountPayloads", id);
+    }
+    state.syncStatus = pendingLocalCount() ? "بقيت سجلات محلية لم يتم تأكيدها. حاول المزامنة مرة أخرى." : "تم رفع كل السجلات المحفوظة محليا.";
+    window.setTimeout(() => loadRemoteDatabase(), 800);
+  } catch (error) {
+    state.syncStatus = `تعذر رفع المحفوظ محليا: ${error.message || "تحقق من الانترنت ثم حاول مرة أخرى"}`;
+    render();
+  } finally {
+    pendingSyncRunning = false;
+  }
+}
+
 async function sendDelete(table, id) {
   if (!DATABASE_ENDPOINT) return;
   try {
@@ -1777,6 +1908,22 @@ async function sendDelete(table, id) {
     });
   } catch (error) {
     // Local deletion is still kept; sync can be retried after the endpoint is connected.
+  }
+}
+
+async function deleteProjectImage(imageId, projectId) {
+  if (!imageId) return;
+  if (!confirm("تأكيد الحذف: هل تريد حذف هذه الصورة من التقرير؟")) return;
+  removeById(projectImages, imageId);
+  render();
+  if (!DATABASE_ENDPOINT) return;
+  try {
+    await callScriptAction("deleteProjectImage", { id: imageId });
+    state.syncStatus = "تم حذف الصورة من معرض التقرير.";
+    loadRemoteDatabase({ selectKey: projectId });
+  } catch (error) {
+    state.syncStatus = `تعذر حذف الصورة من قاعدة البيانات: ${error.message || "حاول مرة أخرى"}`;
+    render();
   }
 }
 
@@ -1838,7 +1985,15 @@ async function saveAccountForm() {
   if (button) button.disabled = true;
   if (status) status.textContent = "جاري حفظ الحساب...";
 
+  const accountPayload = {
+    table: "اسماء الحسابات",
+    id: fields._id,
+    fields,
+    files: {},
+  };
+
   saveLocalAccount(fields);
+  savePendingPayload("expertsPendingAccountPayloads", accountPayload);
   accounts.unshift(fields);
 
   if (DATABASE_ENDPOINT) {
@@ -1847,14 +2002,11 @@ async function saveAccountForm() {
         method: "POST",
         mode: "no-cors",
         headers: { "Content-Type": "text/plain;charset=utf-8" },
-        body: JSON.stringify({
-          table: "اسماء الحسابات",
-          id: fields._id,
-          fields,
-          files: {},
-        }),
+        body: JSON.stringify(accountPayload),
       });
       if (status) status.textContent = "تم إرسال الحساب إلى قاعدة البيانات.";
+      removeLocalSaved("expertsPendingAccounts", fields._id);
+      removePendingPayload("expertsPendingAccountPayloads", fields._id);
     } catch (error) {
       if (status) status.textContent = "تعذر الاتصال بقاعدة البيانات. تم حفظ نسخة مؤقتة على الهاتف.";
     }
