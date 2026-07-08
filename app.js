@@ -536,7 +536,7 @@ function renderReport() {
 function foundationRows(row) {
   return activeFieldSettings().map((item) => {
     const key = settingFieldKey(item);
-    const label = String(value(item, "ط§ط³ظ… ط§ظ„ط¹ط±ط¶", value(item, "ط§ط³ظ… ط§ظ„ط­ظ‚ظ„", key)));
+    const label = String(value(item, "اسم العرض", value(item, "اسم الحقل", key)));
     return [label, value(row, key, "")];
   });
 }
@@ -557,13 +557,13 @@ function renderFoundationReport() {
         <img src="experts-logo.png?v=20260614-logo-root" alt="EXPERTS" class="report-logo">
         <div>
           <h2>استلام الاعمال التاسيسية</h2>
-          <p>${escapeHtml(value(row, "ط§ط³ظ… ط§ظ„ط´ط±ظƒط©"))} | ${escapeHtml(value(row, "ط§ط³ظ… ط§ظ„ظ…ط´ط±ظˆط¹"))}</p>
+          <p>${escapeHtml(value(row, "اسم الشركة"))} | ${escapeHtml(value(row, "اسم المشروع"))}</p>
         </div>
       </header>
       <section class="report-summary">
-        <div><span>المشروع</span><strong>${escapeHtml(value(row, "ط§ط³ظ… ط§ظ„ظ…ط´ط±ظˆط¹"))}</strong></div>
-        <div><span>الطابق</span><strong>${escapeHtml(value(row, "ط§ظ„ط·ط§ط¨ظ‚ "))}</strong></div>
-        <div><span>الشقة</span><strong>${escapeHtml(value(row, "ط§ط³ظ… ط§ظ„ط´ظ‚ط©/ط±ظ‚ظ…ظ‡ط§"))}</strong></div>
+        <div><span>المشروع</span><strong>${escapeHtml(value(row, "اسم المشروع"))}</strong></div>
+        <div><span>الطابق</span><strong>${escapeHtml(value(row, "الطابق "))}</strong></div>
+        <div><span>الشقة</span><strong>${escapeHtml(value(row, "اسم الشقة/رقمها"))}</strong></div>
       </section>
       <table class="report-table foundation-table">
         <tbody>
@@ -603,9 +603,9 @@ function printFoundationReport(row) {
 function foundationReportFileName(row) {
   return [
     "استلام الاعمال التاسيسية",
-    safeReportFilePart(value(row, "ط§ط³ظ… ط§ظ„ظ…ط´ط±ظˆط¹", "مشروع")),
-    safeReportFilePart(value(row, "ط§ظ„ط·ط§ط¨ظ‚", "طابق")),
-    safeReportFilePart(value(row, "ط§ط³ظ… ط§ظ„ط´ظ‚ط©/ط±ظ‚ظ…ظ‡ط§", "شقة")),
+    safeReportFilePart(value(row, "اسم المشروع", "مشروع")),
+    safeReportFilePart(value(row, "الطابق ", "طابق")),
+    safeReportFilePart(value(row, "اسم الشقة/رقمها", "شقة")),
   ].join("_");
 }
 
@@ -613,9 +613,9 @@ async function shareFoundationReportWhatsapp(row) {
   const status = document.querySelector("#reportStatus");
   const message = [
     "استلام الاعمال التاسيسية",
-    `المشروع: ${value(row, "ط§ط³ظ… ط§ظ„ظ…ط´ط±ظˆط¹")}`,
-    `الطابق: ${value(row, "ط§ظ„ط·ط§ط¨ظ‚ ")}`,
-    `الشقة: ${value(row, "ط§ط³ظ… ط§ظ„ط´ظ‚ط©/ط±ظ‚ظ…ظ‡ط§")}`,
+    `المشروع: ${value(row, "اسم المشروع")}`,
+    `الطابق: ${value(row, "الطابق ")}`,
+    `الشقة: ${value(row, "اسم الشقة/رقمها")}`,
     "لحفظ التقرير كملف PDF استخدم زر حفظ / طباعة PDF ثم شارك الملف.",
   ].join("\n");
   if (navigator.share) {
@@ -1151,7 +1151,7 @@ function setupGalleryInputs() {
   function addFiles(fileList) {
     const remaining = Math.max(0, 12 - selectedGalleryFiles.length);
     [...(fileList || [])].slice(0, remaining).forEach((file) => {
-      const entry = { name: file.name || `${Date.now()}.jpg`, type: "image/jpeg", data: "" };
+      const entry = { name: file.name || `${Date.now()}.jpg`, type: "image/jpeg", data: "", localId: createRecordId() };
       entry.ready = imageFileToDataUrl(file).then((dataUrl) => {
         entry.data = dataUrl;
         return entry;
@@ -1175,7 +1175,7 @@ function setupFoundationGalleryInputs() {
   function addFiles(fileList) {
     const remaining = Math.max(0, 12 - selectedFoundationGalleryFiles.length);
     [...(fileList || [])].slice(0, remaining).forEach((file) => {
-      const entry = { name: file.name || `${Date.now()}.jpg`, type: "image/jpeg", data: "" };
+      const entry = { name: file.name || `${Date.now()}.jpg`, type: "image/jpeg", data: "", localId: createRecordId() };
       entry.ready = imageFileToDataUrl(file).then((dataUrl) => {
         entry.data = dataUrl;
         return entry;
@@ -1338,21 +1338,8 @@ async function saveProjectForm(originalRow = {}) {
       data: file.data || "",
     };
   });
-  const galleryFiles = selectedGalleryFiles.map((file, index) => ({
-    name: galleryImageFileName(fields, file.name, index),
-    type: file.type || "image/jpeg",
-    data: file.data || "",
-    caption: "",
-    sortOrder: index + 1,
-    stage: "final",
-  })).concat(selectedFoundationGalleryFiles.map((file, index) => ({
-    name: galleryImageFileName(fields, file.name, index),
-    type: file.type || "image/jpeg",
-    data: file.data || "",
-    caption: "",
-    sortOrder: index + 1,
-    stage: "foundation",
-  })));
+  const galleryFiles = selectedGalleryFiles.map((file, index) => galleryUploadPayload(fields, file, index, "final"))
+    .concat(selectedFoundationGalleryFiles.map((file, index) => galleryUploadPayload(fields, file, index, "foundation")));
   const payload = {
     table: "الرئيسية",
     id: originalRow._id || fields._id,
@@ -1437,6 +1424,20 @@ function clientImageFileName(fields, fieldName, originalName) {
 function galleryImageFileName(fields, originalName, index) {
   const base = clientImageFileName(fields, `معرض-${index + 1}`, originalName);
   return base;
+}
+
+function galleryUploadPayload(fields, file, index, stage) {
+  if (!file.localId) file.localId = createRecordId();
+  if (!file.uploadName) file.uploadName = galleryImageFileName(fields, file.name, index);
+  return {
+    _id: `${fields._id}-${stage}-${file.localId}`,
+    name: file.uploadName,
+    type: file.type || "image/jpeg",
+    data: file.data || "",
+    caption: "",
+    sortOrder: index + 1,
+    stage,
+  };
 }
 
 function cleanFileNamePart(text) {
