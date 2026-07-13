@@ -895,7 +895,13 @@ function editableGallerySection(row, stage) {
 }
 
 function reportGallery(row) {
-  const images = galleryForProject(row);
+  const images = projectImages
+    .filter((item) => String(value(item, "project_id", "")) === String(row?._id || ""))
+    .sort((a, b) => {
+      const stageA = String(value(a, "stage", "final")) === "foundation" ? 0 : 1;
+      const stageB = String(value(b, "stage", "final")) === "foundation" ? 0 : 1;
+      return stageA - stageB || Number(value(a, "sort_order", 0)) - Number(value(b, "sort_order", 0));
+    });
   if (!images.length) return "";
   return `
     <section class="report-gallery">
