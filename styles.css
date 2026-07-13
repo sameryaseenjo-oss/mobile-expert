@@ -1931,6 +1931,20 @@ main,
     page-break-after: avoid;
   }
 
+  .report-gallery-grid {
+    display: block;
+    font-size: 0;
+  }
+
+  .report-gallery-grid figure {
+    display: inline-block;
+    width: calc(50% - 4mm);
+    margin: 0 2mm 5mm;
+    vertical-align: top;
+    font-size: 12pt;
+    overflow: hidden;
+  }
+
   .report-image img {
     height: 58mm;
     object-fit: contain;
